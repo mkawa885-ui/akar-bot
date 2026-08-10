@@ -1,0 +1,522 @@
+import { Context, InlineKeyboard, InputFile } from "grammy";
+import fs from "fs";
+import path from "path";
+import { prisma } from "../db";
+import { isAdmin } from "../config";
+import { t } from "../texts";
+
+const adminState = new Map<number, { action: string; data?: any }>();
+
+export function getAdminState(userId: number) {
+  return adminState.get(userId);
+}
+
+export function clearAdminState(userId: number) {
+  adminState.delete(userId);
+}
+
+export async function handleAdminPanel(ctx: Context) {
+  if (!isAdmin(ctx.from!.id)) return;
+  if (ctx.callbackQuery) await ctx.answerCallbackQuery();
+
+  const kb = new InlineKeyboard()
+    .text(t.addCategory, "admin_add_cat").row()
+    .text(t.addProduct, "admin_add_prod").row()
+    .text(t.addStock, "admin_add_stock").row()
+    .text(t.toggleProduct, "admin_toggle_prod").row()
+    .text(t.deleteCategory, "admin_del_cat").row()
+    .text(t.deleteProduct, "admin_del_prod").row()
+    .text(t.pendingOrders, "admin_pending").row()
+    .text(t.searchStock, "admin_search").row()
+    .text(t.manageUsers, "admin_users").row()
+    .text(t.inventory, "admin_inventory").row()
+    .text(t.stats, "admin_stats").row()
+    .text(t.broadcast, "admin_broadcast").row()
+    .text(t.exportDb, "admin_export_db").row()
+    .text(t.restoreDb, "admin_restore_db").row()
+    .text(t.back, "back_main");
+
+  await ctx.editMessageText(t.adminWelcome, { reply_markup: kb });
+}
+
+export async function handleAdminCallback(ctx: Context) {
+  if (!isAdmin(ctx.from!.id)) return;
+  await ctx.answerCallbackQuery();
+
+  const data = ctx.callbackQuery!.data!;
+
+  if (data === "admin_add_cat") {
+    adminState.set(ctx.from!.id, { action: "add_category" });
+    await ctx.editMessageText(t.enterCategoryName);
+  } else if (data === "admin_add_prod") {
+    const categories = await prisma.category.findMany();
+    if (categories.length === 0) {
+      await ctx.editMessageText(t.noCategories);
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const cat of categories) {
+      kb.text(cat.name, `admin_prod_cat_${cat.id}`).row();
+    }
+    await ctx.editMessageText(t.selectCategoryForProduct, { reply_markup: kb });
+  } else if (data.startsWith("admin_prod_cat_")) {
+    const catId = parseInt(data.replace("admin_prod_cat_", ""));
+    adminState.set(ctx.from!.id, { action: "add_product_title", data: { categoryId: catId } });
+    await ctx.editMessageText(t.enterProductTitle);
+  } else if (data === "admin_add_stock") {
+    const products = await prisma.product.findMany({ include: { category: true } });
+    if (products.length === 0) {
+      await ctx.editMessageText(t.noProducts);
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const prod of products) {
+      kb.text(`${prod.category.name} > ${prod.title}`, `admin_stock_prod_${prod.id}`).row();
+    }
+    await ctx.editMessageText(t.selectProductForStock, { reply_markup: kb });
+  } else if (data.startsWith("admin_stock_prod_")) {
+    const prodId = parseInt(data.replace("admin_stock_prod_", ""));
+    adminState.set(ctx.from!.id, { action: "add_stock", data: { productId: prodId } });
+    await ctx.editMessageText(t.enterStockItems);
+  } else if (data === "admin_toggle_prod") {
+    const products = await prisma.product.findMany({ include: { category: true } });
+    if (products.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noProducts, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const prod of products) {
+      const status = prod.enabled ? "🟢" : "🔴";
+      kb.text(`${status} ${prod.category.name} > ${prod.title}`, `admin_toggleprod_${prod.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.selectProductToToggle, { reply_markup: kb });
+  } else if (data.startsWith("admin_toggleprod_")) {
+    const prodId = parseInt(data.replace("admin_toggleprod_", ""));
+    const prod = await prisma.product.findUnique({ where: { id: prodId } });
+    if (!prod) return;
+    const updated = await prisma.product.update({
+      where: { id: prodId },
+      data: { enabled: !prod.enabled },
+    });
+    await ctx.editMessageText(
+      updated.enabled ? t.productEnabled(updated.title) : t.productDisabled(updated.title)
+    );
+  } else if (data === "admin_del_cat") {
+    const categories = await prisma.category.findMany();
+    if (categories.length === 0) {
+      await ctx.editMessageText(t.noCategories);
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const cat of categories) {
+      kb.text(`🗑️ ${cat.name}`, `admin_delcat_${cat.id}`).row();
+    }
+    await ctx.editMessageText(t.selectCategoryToDelete, { reply_markup: kb });
+  } else if (data.startsWith("admin_delcat_")) {
+    const catId = parseInt(data.replace("admin_delcat_", ""));
+    await prisma.category.delete({ where: { id: catId } });
+    await ctx.editMessageText(t.categoryDeleted);
+  } else if (data === "admin_del_prod") {
+    const products = await prisma.product.findMany({ include: { category: true } });
+    if (products.length === 0) {
+      await ctx.editMessageText(t.noProducts);
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const prod of products) {
+      kb.text(`🗑️ ${prod.category.name} > ${prod.title}`, `admin_delprod_${prod.id}`).row();
+    }
+    await ctx.editMessageText(t.selectProductToDelete, { reply_markup: kb });
+  } else if (data.startsWith("admin_delprod_")) {
+    const prodId = parseInt(data.replace("admin_delprod_", ""));
+    await prisma.product.delete({ where: { id: prodId } });
+    await ctx.editMessageText(t.productDeleted);
+  } else if (data === "admin_delivery_auto" || data === "admin_delivery_manual") {
+    const st = adminState.get(ctx.from!.id);
+    if (!st || st.action !== "add_product_delivery") return;
+    const autoDeliver = data === "admin_delivery_auto";
+    await prisma.product.create({
+      data: {
+        title: st.data.title,
+        description: st.data.description,
+        price: st.data.price,
+        categoryId: st.data.categoryId,
+        autoDeliver,
+      },
+    });
+    clearAdminState(ctx.from!.id);
+    await ctx.editMessageText(t.productAdded);
+  } else if (data === "admin_pending") {
+    const orders = await prisma.order.findMany({
+      where: { delivered: false, product: { autoDeliver: false } },
+      include: { user: true, product: { include: { category: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (orders.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noPendingOrders, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const order of orders) {
+      kb.text(
+        `#${order.id} ${order.user.firstName || "?"} - ${order.product.title}`,
+        `admin_deliver_${order.id}`
+      ).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.pendingOrders, { reply_markup: kb });
+  } else if (data.startsWith("admin_deliver_")) {
+    const orderId = parseInt(data.replace("admin_deliver_", ""));
+    adminState.set(ctx.from!.id, { action: "deliver_order", data: { orderId } });
+    await ctx.editMessageText(t.enterDeliveryContent);
+  } else if (data === "admin_search") {
+    adminState.set(ctx.from!.id, { action: "search_stock" });
+    await ctx.editMessageText(t.enterSearchQuery);
+  } else if (data === "admin_users") {
+    const users = await prisma.user.findMany({
+      include: { _count: { select: { orders: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (users.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noUsers, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const user of users) {
+      const label = `${user.firstName || "?"} - ${user.debt.toLocaleString()} دینار (${user._count.orders})`;
+      kb.text(label, `admin_user_${user.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.userListTitle, { reply_markup: kb });
+  } else if (data.startsWith("admin_user_")) {
+    const userId = parseInt(data.replace("admin_user_", ""));
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { _count: { select: { orders: true } } },
+    });
+    if (!user) return;
+    const text = t.userDetail(
+      user.firstName || "?",
+      user.username,
+      user.debt,
+      user._count.orders,
+      user.debtLimit
+    );
+    const kb = new InlineKeyboard()
+      .text(t.clearDebt, `admin_cleardebt_${user.id}`).row()
+      .text(t.addDebt, `admin_adddebt_${user.id}`).row()
+      .text(t.setDebtLimit, `admin_setlimit_${user.id}`).row()
+      .text(t.back, "admin_users");
+    await ctx.editMessageText(text, { reply_markup: kb });
+  } else if (data.startsWith("admin_cleardebt_")) {
+    const userId = parseInt(data.replace("admin_cleardebt_", ""));
+    const user = await prisma.user.update({ where: { id: userId }, data: { debt: 0 } });
+    await ctx.editMessageText(t.debtCleared);
+    try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotify); } catch {}
+  } else if (data.startsWith("admin_adddebt_")) {
+    const userId = parseInt(data.replace("admin_adddebt_", ""));
+    adminState.set(ctx.from!.id, { action: "add_debt", data: { userId } });
+    await ctx.editMessageText(t.enterDebtAmount);
+  } else if (data.startsWith("admin_setlimit_")) {
+    const userId = parseInt(data.replace("admin_setlimit_", ""));
+    adminState.set(ctx.from!.id, { action: "set_debt_limit", data: { userId } });
+    await ctx.editMessageText(t.enterDebtLimit);
+  } else if (data === "admin_inventory") {
+    const products = await prisma.product.findMany({
+      include: {
+        category: true,
+        stockItems: true,
+      },
+      orderBy: { title: "asc" },
+    });
+    if (products.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noProducts, { reply_markup: kb });
+      return;
+    }
+    let text = "📋 ستۆک و ئامادەیی:\n\n";
+    for (const prod of products) {
+      const available = prod.stockItems.filter((s) => !s.sold).length;
+      const sold = prod.stockItems.filter((s) => s.sold).length;
+      text += `📂 ${prod.category.name} > 📦 ${prod.title}\n`;
+      text += `   🟢 ئامادە: ${available} | 🔴 فرۆشراو: ${sold}\n\n`;
+    }
+    const kb = new InlineKeyboard().text(t.back, "back_admin");
+    await ctx.editMessageText(text, { reply_markup: kb });
+  } else if (data === "admin_stats") {
+    const [users, products, orders, stock] = await Promise.all([
+      prisma.user.count(),
+      prisma.product.count(),
+      prisma.order.count(),
+      prisma.stockItem.count({ where: { sold: false } }),
+    ]);
+    await ctx.editMessageText(t.statsMessage(users, products, orders, stock));
+  } else if (data === "admin_export_db") {
+    await ctx.editMessageText(t.exportDbSending);
+    try {
+      const [users, categories, products, stockItems, orders] = await Promise.all([
+        prisma.user.findMany(),
+        prisma.category.findMany(),
+        prisma.product.findMany(),
+        prisma.stockItem.findMany(),
+        prisma.order.findMany(),
+      ]);
+      const backup = JSON.stringify({ users, categories, products, stockItems, orders }, (_, v) =>
+        typeof v === "bigint" ? v.toString() : v, 2);
+      const date = new Date().toISOString().replace(/[:.]/g, "-");
+      const backupPath = path.resolve(__dirname, `../../backup-${date}.json`);
+      fs.writeFileSync(backupPath, backup);
+      await ctx.api.sendDocument(ctx.from!.id, new InputFile(backupPath, `backup-${date}.json`));
+      fs.unlinkSync(backupPath);
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  } else if (data === "admin_restore_db") {
+    adminState.set(ctx.from!.id, { action: "restore_db" });
+    await ctx.editMessageText(t.restoreDbPrompt);
+  } else if (data === "admin_broadcast") {
+    adminState.set(ctx.from!.id, { action: "broadcast" });
+    await ctx.editMessageText(t.enterBroadcast);
+  }
+}
+
+export async function handleAdminMessage(ctx: Context) {
+  if (!ctx.from || !ctx.message?.text) return;
+
+  const state = adminState.get(ctx.from.id);
+  if (!state) return false;
+
+  const text = ctx.message.text;
+
+  if (text === t.cancel) {
+    clearAdminState(ctx.from.id);
+    await ctx.reply(t.cancelled);
+    return true;
+  }
+
+  switch (state.action) {
+    case "add_category": {
+      await prisma.category.create({ data: { name: text } });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.categoryAdded);
+      return true;
+    }
+    case "add_product_title": {
+      adminState.set(ctx.from.id, {
+        action: "add_product_desc",
+        data: { ...state.data, title: text },
+      });
+      await ctx.reply(t.enterProductDescription);
+      return true;
+    }
+    case "add_product_desc": {
+      adminState.set(ctx.from.id, {
+        action: "add_product_price",
+        data: { ...state.data, description: text },
+      });
+      await ctx.reply(t.enterProductPrice);
+      return true;
+    }
+    case "add_product_price": {
+      const price = parseFloat(text);
+      if (isNaN(price) || price <= 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      adminState.set(ctx.from.id, {
+        action: "add_product_delivery",
+        data: { ...state.data, price },
+      });
+      const kb = new InlineKeyboard()
+        .text(t.autoDelivery, "admin_delivery_auto")
+        .text(t.manualDelivery, "admin_delivery_manual");
+      await ctx.reply(t.selectDeliveryType, { reply_markup: kb });
+      return true;
+    }
+    case "add_stock": {
+      const items = text
+        .split("\n")
+        .map((line: string) => line.trim())
+        .filter((line: string) => line.length > 0);
+      await prisma.stockItem.createMany({
+        data: items.map((content: string) => ({
+          content,
+          productId: state.data.productId,
+        })),
+      });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.stockAdded(items.length));
+      return true;
+    }
+    case "broadcast": {
+      const users = await prisma.user.findMany();
+      let sent = 0;
+      for (const user of users) {
+        try {
+          await ctx.api.sendMessage(Number(user.telegramId), text);
+          sent++;
+        } catch {}
+      }
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.broadcastSent(sent));
+      return true;
+    }
+    case "deliver_order": {
+      const order = await prisma.order.findUnique({
+        where: { id: state.data.orderId },
+        include: { user: true },
+      });
+      if (!order) {
+        clearAdminState(ctx.from.id);
+        await ctx.reply(t.restoreFailed);
+        return true;
+      }
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { delivered: true },
+      });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.orderDelivered);
+      try {
+        await ctx.api.sendMessage(
+          Number(order.user.telegramId),
+          t.orderDeliveredNotify(text),
+          { parse_mode: "HTML" }
+        );
+      } catch {}
+      return true;
+    }
+    case "search_stock": {
+      const results = await prisma.stockItem.findMany({
+        where: { content: { contains: text } },
+        include: { product: { include: { category: true } } },
+        take: 20,
+      });
+      clearAdminState(ctx.from.id);
+      if (results.length === 0) {
+        await ctx.reply(t.noSearchResults(text));
+        return true;
+      }
+      let msg = t.searchResults(text, results.length) + "\n\n";
+      for (const item of results) {
+        const status = item.sold ? t.stockSold : t.stockAvailable;
+        msg += `${status} | 📂 ${item.product.category.name} > ${item.product.title}\n`;
+        msg += `📄 ${item.content}\n\n`;
+      }
+      await ctx.reply(msg);
+      return true;
+    }
+    case "add_debt": {
+      const amount = parseFloat(text);
+      if (isNaN(amount) || amount <= 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      const updatedUser = await prisma.user.update({
+        where: { id: state.data.userId },
+        data: { debt: { increment: amount } },
+      });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.debtAdded(amount));
+      try { await ctx.api.sendMessage(Number(updatedUser.telegramId), t.debtAddedNotify(amount, updatedUser.debt)); } catch {}
+      return true;
+    }
+    case "set_debt_limit": {
+      const limit = parseFloat(text);
+      if (isNaN(limit) || limit < 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      await prisma.user.update({
+        where: { id: state.data.userId },
+        data: { debtLimit: limit },
+      });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.debtLimitSet(limit));
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export async function handleAdminDocument(ctx: Context) {
+  if (!ctx.from || !ctx.message?.document) return false;
+  const state = adminState.get(ctx.from.id);
+  if (!state || state.action !== "restore_db") return false;
+
+  const fileName = ctx.message.document.file_name || "";
+  if (!fileName.endsWith(".json")) {
+    await ctx.reply(t.restoreInvalidFile);
+    return true;
+  }
+
+  try {
+    const file = await ctx.getFile();
+    const filePath = `https://api.telegram.org/file/bot${(await import("../config")).config.botToken}/${file.file_path}`;
+
+    const response = await fetch(filePath);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const jsonData = JSON.parse(buffer.toString("utf-8"));
+
+      if (jsonData.categories) {
+        for (const cat of jsonData.categories) {
+          await prisma.category.upsert({
+            where: { id: cat.id },
+            update: { name: cat.name },
+            create: { id: cat.id, name: cat.name },
+          });
+        }
+      }
+      if (jsonData.products) {
+        for (const prod of jsonData.products) {
+          await prisma.product.upsert({
+            where: { id: prod.id },
+            update: {
+              title: prod.title,
+              description: prod.description,
+              price: prod.price,
+              categoryId: prod.categoryId,
+            },
+            create: {
+              id: prod.id,
+              title: prod.title,
+              description: prod.description,
+              price: prod.price,
+              categoryId: prod.categoryId,
+            },
+          });
+        }
+      }
+      if (jsonData.stockItems) {
+        for (const item of jsonData.stockItems) {
+          await prisma.stockItem.upsert({
+            where: { id: item.id },
+            update: {
+              content: item.content,
+              productId: item.productId,
+              sold: item.sold ?? false,
+            },
+            create: {
+              id: item.id,
+              content: item.content,
+              productId: item.productId,
+              sold: item.sold ?? false,
+            },
+          });
+        }
+      }
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.restoreSuccess);
+  } catch (err) {
+    console.error("Restore failed:", err);
+    clearAdminState(ctx.from.id);
+    await ctx.reply(t.restoreFailed);
+  }
+
+  return true;
+}

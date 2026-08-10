@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  telegramId BigInt  @unique
+  username   String?
+  firstName  String?
+  approved   Boolean  @default(false)
+  debt       Float    @default(0)
+  debtLimit  Float    @default(0)
+  createdAt  DateTime @default(now())
+  orders     Order[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  price       Float
+  autoDeliver Boolean  @default(true)
+  enabled     Boolean  @default(true)
+  lowStockAlert Int    @default(5)
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  stockItems  StockItem[]
+  orders      Order[]
+  createdAt   DateTime @default(now())
+}
+
+model StockItem {
+  id        Int      @id @default(autoincrement())
+  content   String
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sold      Boolean  @default(false)
+  orderId   Int?
+  order     Order?   @relation(fields: [orderId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+  productId  Int
+  product    Product   @relation(fields: [productId], references: [id])
+  status     String    @default("pending")
+  delivered  Boolean   @default(false)
+  stockItems StockItem[]
+  createdAt  DateTime  @default(now())
+}
