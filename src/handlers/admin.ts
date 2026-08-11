@@ -49,7 +49,8 @@ export async function handleAdminCallback(ctx: Context) {
   } else if (data === "admin_add_prod") {
     const categories = await prisma.category.findMany();
     if (categories.length === 0) {
-      await ctx.editMessageText(t.noCategories);
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noCategories, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
@@ -64,7 +65,8 @@ export async function handleAdminCallback(ctx: Context) {
   } else if (data === "admin_add_stock") {
     const products = await prisma.product.findMany({ include: { category: true } });
     if (products.length === 0) {
-      await ctx.editMessageText(t.noProducts);
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
@@ -135,19 +137,23 @@ export async function handleAdminCallback(ctx: Context) {
       where: { id: prodId },
       data: { enabled: !prod.enabled },
     });
+    const togKb = new InlineKeyboard().text(t.back, "admin_toggle_prod");
     await ctx.editMessageText(
-      updated.enabled ? t.productEnabled(updated.title) : t.productDisabled(updated.title)
+      updated.enabled ? t.productEnabled(updated.title) : t.productDisabled(updated.title),
+      { reply_markup: togKb }
     );
   } else if (data === "admin_del_cat") {
     const categories = await prisma.category.findMany();
     if (categories.length === 0) {
-      await ctx.editMessageText(t.noCategories);
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noCategories, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
     for (const cat of categories) {
       kb.text(`🗑️ ${cat.name}`, `admin_delcat_${cat.id}`).row();
     }
+    kb.text(t.back, "back_admin");
     await ctx.editMessageText(t.selectCategoryToDelete, { reply_markup: kb });
   } else if (data.startsWith("admin_delcat_")) {
     const catId = parseInt(data.replace("admin_delcat_", ""));
@@ -157,18 +163,21 @@ export async function handleAdminCallback(ctx: Context) {
   } else if (data === "admin_del_prod") {
     const products = await prisma.product.findMany({ include: { category: true } });
     if (products.length === 0) {
-      await ctx.editMessageText(t.noProducts);
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
     for (const prod of products) {
       kb.text(`🗑️ ${prod.category.name} > ${prod.title}`, `admin_delprod_${prod.id}`).row();
     }
+    kb.text(t.back, "back_admin");
     await ctx.editMessageText(t.selectProductToDelete, { reply_markup: kb });
   } else if (data.startsWith("admin_delprod_")) {
     const prodId = parseInt(data.replace("admin_delprod_", ""));
     await prisma.product.delete({ where: { id: prodId } });
-    await ctx.editMessageText(t.productDeleted);
+    const kb = new InlineKeyboard().text(t.back, "back_admin");
+    await ctx.editMessageText(t.productDeleted, { reply_markup: kb });
   } else if (data === "admin_delivery_auto" || data === "admin_delivery_manual") {
     const st = adminState.get(ctx.from!.id);
     if (!st || st.action !== "add_product_delivery") return;
@@ -184,7 +193,8 @@ export async function handleAdminCallback(ctx: Context) {
       },
     });
     clearAdminState(ctx.from!.id);
-    await ctx.editMessageText(t.productAdded);
+    const kb = new InlineKeyboard().text(t.back, "back_admin");
+    await ctx.editMessageText(t.productAdded, { reply_markup: kb });
   } else if (data === "admin_pending") {
     const orders = await prisma.order.findMany({
       where: { delivered: false, product: { autoDeliver: false } },
@@ -260,7 +270,7 @@ export async function handleAdminCallback(ctx: Context) {
       .text(t.roleStandard, `admin_setrole_${userId}_standard`)
       .text(t.roleVip, `admin_setrole_${userId}_vip`).row()
       .text(t.back, `admin_user_${userId}`);
-    await ctx.editMessageText(`ڕۆڵی ئێستا: ${user.role === "vip" ? "👑 VIP" : "📋 Standard"}\n\nڕۆڵێک هەڵبژێرە:`, { reply_markup: kb });
+    await ctx.editMessageText(`Current role: ${user.role === "vip" ? "👑 VIP" : "📋 Standard"}\n\nSelect a role:`, { reply_markup: kb });
   } else if (data.startsWith("admin_setrole_")) {
     const parts = data.replace("admin_setrole_", "").split("_");
     const userId = parseInt(parts[0]);
@@ -269,12 +279,14 @@ export async function handleAdminCallback(ctx: Context) {
       where: { id: userId },
       data: { role: newRole },
     });
-    await ctx.editMessageText(t.roleChanged(newRole));
+    const roleKb = new InlineKeyboard().text(t.back, `admin_user_${userId}`);
+    await ctx.editMessageText(t.roleChanged(newRole), { reply_markup: roleKb });
     try { await ctx.api.sendMessage(Number(user.telegramId), t.roleChangedNotify(newRole)); } catch {}
   } else if (data.startsWith("admin_cleardebt_")) {
     const userId = parseInt(data.replace("admin_cleardebt_", ""));
     const user = await prisma.user.update({ where: { id: userId }, data: { debt: 0 } });
-    await ctx.editMessageText(t.debtCleared);
+    const debtKb = new InlineKeyboard().text(t.back, `admin_user_${userId}`);
+    await ctx.editMessageText(t.debtCleared, { reply_markup: debtKb });
     try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotify); } catch {}
   } else if (data.startsWith("admin_adddebt_")) {
     const userId = parseInt(data.replace("admin_adddebt_", ""));
@@ -314,12 +326,12 @@ export async function handleAdminCallback(ctx: Context) {
       await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
-    let text = "📋 ستۆک و ئامادەیی:\n\n";
+    let text = "📋 Inventory:\n\n";
     for (const prod of products) {
       const available = prod.stockItems.filter((s) => !s.sold).length;
       const sold = prod.stockItems.filter((s) => s.sold).length;
       text += `📂 ${prod.category.name} > 📦 ${prod.title}\n`;
-      text += `   🟢 ئامادە: ${available} | 🔴 فرۆشراو: ${sold}\n\n`;
+      text += `   🟢 Available: ${available} | 🔴 Sold: ${sold}\n\n`;
     }
     const kb = new InlineKeyboard().text(t.back, "back_admin");
     await ctx.editMessageText(text, { reply_markup: kb });
@@ -330,7 +342,8 @@ export async function handleAdminCallback(ctx: Context) {
       prisma.order.count(),
       prisma.stockItem.count({ where: { sold: false } }),
     ]);
-    await ctx.editMessageText(t.statsMessage(users, products, orders, stock));
+    const statsKb = new InlineKeyboard().text(t.back, "back_admin");
+    await ctx.editMessageText(t.statsMessage(users, products, orders, stock), { reply_markup: statsKb });
   } else if (data === "admin_export_db") {
     await ctx.editMessageText(t.exportDbSending);
     try {
@@ -552,6 +565,15 @@ export async function handleAdminDocument(ctx: Context) {
     const buffer = Buffer.from(await response.arrayBuffer());
     const jsonData = JSON.parse(buffer.toString("utf-8"));
 
+      if (jsonData.users) {
+        for (const u of jsonData.users) {
+          await prisma.user.upsert({
+            where: { id: u.id },
+            update: { telegramId: BigInt(u.telegramId), username: u.username, firstName: u.firstName, approved: u.approved, role: u.role ?? "standard", debt: u.debt ?? 0, debtLimit: u.debtLimit ?? 0 },
+            create: { id: u.id, telegramId: BigInt(u.telegramId), username: u.username, firstName: u.firstName, approved: u.approved, role: u.role ?? "standard", debt: u.debt ?? 0, debtLimit: u.debtLimit ?? 0 },
+          });
+        }
+      }
       if (jsonData.categories) {
         for (const cat of jsonData.categories) {
           await prisma.category.upsert({
@@ -563,21 +585,20 @@ export async function handleAdminDocument(ctx: Context) {
       }
       if (jsonData.products) {
         for (const prod of jsonData.products) {
+          const prodData = {
+            title: prod.title,
+            description: prod.description,
+            price: prod.price,
+            vipPrice: prod.vipPrice ?? null,
+            autoDeliver: prod.autoDeliver ?? true,
+            enabled: prod.enabled ?? true,
+            lowStockAlert: prod.lowStockAlert ?? 5,
+            categoryId: prod.categoryId,
+          };
           await prisma.product.upsert({
             where: { id: prod.id },
-            update: {
-              title: prod.title,
-              description: prod.description,
-              price: prod.price,
-              categoryId: prod.categoryId,
-            },
-            create: {
-              id: prod.id,
-              title: prod.title,
-              description: prod.description,
-              price: prod.price,
-              categoryId: prod.categoryId,
-            },
+            update: prodData,
+            create: { id: prod.id, ...prodData },
           });
         }
       }
@@ -585,17 +606,17 @@ export async function handleAdminDocument(ctx: Context) {
         for (const item of jsonData.stockItems) {
           await prisma.stockItem.upsert({
             where: { id: item.id },
-            update: {
-              content: item.content,
-              productId: item.productId,
-              sold: item.sold ?? false,
-            },
-            create: {
-              id: item.id,
-              content: item.content,
-              productId: item.productId,
-              sold: item.sold ?? false,
-            },
+            update: { content: item.content, productId: item.productId, sold: item.sold ?? false },
+            create: { id: item.id, content: item.content, productId: item.productId, sold: item.sold ?? false },
+          });
+        }
+      }
+      if (jsonData.orders) {
+        for (const o of jsonData.orders) {
+          await prisma.order.upsert({
+            where: { id: o.id },
+            update: { userId: o.userId, productId: o.productId, status: o.status ?? "pending", delivered: o.delivered ?? false },
+            create: { id: o.id, userId: o.userId, productId: o.productId, status: o.status ?? "pending", delivered: o.delivered ?? false },
           });
         }
       }
