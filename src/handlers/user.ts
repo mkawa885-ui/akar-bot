@@ -91,7 +91,7 @@ export async function handleApproval(ctx: Context) {
   if (approved) {
     await prisma.user.update({
       where: { telegramId: BigInt(userId) },
-      data: { approved: true },
+      data: { approved: true, debtLimit: 100000 },
     });
     await ctx.editMessageText(t.userApproved);
     try {

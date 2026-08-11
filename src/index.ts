@@ -103,6 +103,11 @@ async function main() {
   await prisma.$connect();
   console.log("Database connected");
 
+  await prisma.user.updateMany({
+    where: { debtLimit: 0 },
+    data: { debtLimit: 100000 },
+  });
+
   setInterval(autoBackup, 24 * 60 * 60 * 1000);
   console.log("Auto backup scheduled every 24 hours");
 
