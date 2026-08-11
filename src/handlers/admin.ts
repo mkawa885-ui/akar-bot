@@ -43,9 +43,26 @@ export async function handleAdminCallback(ctx: Context) {
 
   const data = ctx.callbackQuery!.data!;
 
-  if (data === "admin_add_cat") {
+  // Clear any pending admin state when navigating
+  if (!data.startsWith("admin_delivery_")) {
+    const currentState = adminState.get(ctx.from!.id);
+    if (currentState && data !== "admin_cancel") {
+      // Keep state only for flows that use callbacks mid-state
+      const keepState = ["add_product_delivery"].includes(currentState.action);
+      if (!keepState && !data.startsWith("admin_prod_cat_") && !data.startsWith("admin_stock_prod_")) {
+        clearAdminState(ctx.from!.id);
+      }
+    }
+  }
+
+  if (data === "admin_cancel") {
+    clearAdminState(ctx.from!.id);
+    await handleAdminPanel(ctx);
+    return;
+  } else if (data === "admin_add_cat") {
     adminState.set(ctx.from!.id, { action: "add_category" });
-    await ctx.editMessageText(t.enterCategoryName);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterCategoryName, { reply_markup: kb });
   } else if (data === "admin_add_prod") {
     const categories = await prisma.category.findMany();
     if (categories.length === 0) {
@@ -57,11 +74,13 @@ export async function handleAdminCallback(ctx: Context) {
     for (const cat of categories) {
       kb.text(cat.name, `admin_prod_cat_${cat.id}`).row();
     }
+    kb.text(t.back, "back_admin");
     await ctx.editMessageText(t.selectCategoryForProduct, { reply_markup: kb });
   } else if (data.startsWith("admin_prod_cat_")) {
     const catId = parseInt(data.replace("admin_prod_cat_", ""));
     adminState.set(ctx.from!.id, { action: "add_product_title", data: { categoryId: catId } });
-    await ctx.editMessageText(t.enterProductTitle);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterProductTitle, { reply_markup: kb });
   } else if (data === "admin_add_stock") {
     const products = await prisma.product.findMany({ include: { category: true } });
     if (products.length === 0) {
@@ -73,11 +92,13 @@ export async function handleAdminCallback(ctx: Context) {
     for (const prod of products) {
       kb.text(`${prod.category.name} > ${prod.title}`, `admin_stock_prod_${prod.id}`).row();
     }
+    kb.text(t.back, "back_admin");
     await ctx.editMessageText(t.selectProductForStock, { reply_markup: kb });
   } else if (data.startsWith("admin_stock_prod_")) {
     const prodId = parseInt(data.replace("admin_stock_prod_", ""));
     adminState.set(ctx.from!.id, { action: "add_stock", data: { productId: prodId } });
-    await ctx.editMessageText(t.enterStockItems);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterStockItems, { reply_markup: kb });
   } else if (data === "admin_del_stock") {
     const products = await prisma.product.findMany({
       include: { category: true, _count: { select: { stockItems: true } } },
@@ -218,10 +239,12 @@ export async function handleAdminCallback(ctx: Context) {
   } else if (data.startsWith("admin_deliver_")) {
     const orderId = parseInt(data.replace("admin_deliver_", ""));
     adminState.set(ctx.from!.id, { action: "deliver_order", data: { orderId } });
-    await ctx.editMessageText(t.enterDeliveryContent);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterDeliveryContent, { reply_markup: kb });
   } else if (data === "admin_search") {
     adminState.set(ctx.from!.id, { action: "search_stock" });
-    await ctx.editMessageText(t.enterSearchQuery);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterSearchQuery, { reply_markup: kb });
   } else if (data === "admin_users") {
     const users = await prisma.user.findMany({
       include: { _count: { select: { orders: true } } },
@@ -291,11 +314,13 @@ export async function handleAdminCallback(ctx: Context) {
   } else if (data.startsWith("admin_adddebt_")) {
     const userId = parseInt(data.replace("admin_adddebt_", ""));
     adminState.set(ctx.from!.id, { action: "add_debt", data: { userId } });
-    await ctx.editMessageText(t.enterDebtAmount);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterDebtAmount, { reply_markup: kb });
   } else if (data.startsWith("admin_setlimit_")) {
     const userId = parseInt(data.replace("admin_setlimit_", ""));
     adminState.set(ctx.from!.id, { action: "set_debt_limit", data: { userId } });
-    await ctx.editMessageText(t.enterDebtLimit);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterDebtLimit, { reply_markup: kb });
   } else if (data.startsWith("admin_revoke_")) {
     const userId = parseInt(data.replace("admin_revoke_", ""));
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -366,10 +391,12 @@ export async function handleAdminCallback(ctx: Context) {
     }
   } else if (data === "admin_restore_db") {
     adminState.set(ctx.from!.id, { action: "restore_db" });
-    await ctx.editMessageText(t.restoreDbPrompt);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.restoreDbPrompt, { reply_markup: kb });
   } else if (data === "admin_broadcast") {
     adminState.set(ctx.from!.id, { action: "broadcast" });
-    await ctx.editMessageText(t.enterBroadcast);
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterBroadcast, { reply_markup: kb });
   }
 }
 
