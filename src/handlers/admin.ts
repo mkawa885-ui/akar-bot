@@ -152,7 +152,8 @@ export async function handleAdminCallback(ctx: Context) {
   } else if (data.startsWith("admin_delcat_")) {
     const catId = parseInt(data.replace("admin_delcat_", ""));
     await prisma.category.delete({ where: { id: catId } });
-    await ctx.editMessageText(t.categoryDeleted);
+    const kb = new InlineKeyboard().text(t.back, "back_admin");
+    await ctx.editMessageText(t.categoryDeleted, { reply_markup: kb });
   } else if (data === "admin_del_prod") {
     const products = await prisma.product.findMany({ include: { category: true } });
     if (products.length === 0) {

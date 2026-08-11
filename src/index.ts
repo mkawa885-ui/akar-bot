@@ -113,6 +113,10 @@ async function main() {
     menu_button: { type: "commands" },
   });
 
+  bot.catch((err) => {
+    console.error("Bot error:", err.message);
+  });
+
   bot.start({
     onStart: () => console.log("Bot is running!"),
   });
