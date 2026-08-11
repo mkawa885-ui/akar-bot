@@ -23,6 +23,7 @@ export async function handleAdminPanel(ctx: Context) {
     .text(t.addCategory, "admin_add_cat").row()
     .text(t.addProduct, "admin_add_prod").row()
     .text(t.addStock, "admin_add_stock").row()
+    .text(t.deleteStock, "admin_del_stock").row()
     .text(t.toggleProduct, "admin_toggle_prod").row()
     .text(t.deleteCategory, "admin_del_cat").row()
     .text(t.deleteProduct, "admin_del_prod").row()
@@ -78,6 +79,43 @@ export async function handleAdminCallback(ctx: Context) {
     const prodId = parseInt(data.replace("admin_stock_prod_", ""));
     adminState.set(ctx.from!.id, { action: "add_stock", data: { productId: prodId } });
     await ctx.editMessageText(t.enterStockItems);
+  } else if (data === "admin_del_stock") {
+    const products = await prisma.product.findMany({
+      include: { category: true, _count: { select: { stockItems: true } } },
+    });
+    if (products.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noProducts, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const prod of products) {
+      kb.text(`${prod.category.name} > ${prod.title} (${prod._count.stockItems})`, `admin_delstock_${prod.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.selectProductForStockDelete, { reply_markup: kb });
+  } else if (data.startsWith("admin_delstock_")) {
+    const prodId = parseInt(data.replace("admin_delstock_", ""));
+    const prod = await prisma.product.findUnique({ where: { id: prodId } });
+    if (!prod) return;
+    const available = await prisma.stockItem.count({ where: { productId: prodId, sold: false } });
+    const kb = new InlineKeyboard()
+      .text(t.deleteUnsoldStock, `admin_clearstock_unsold_${prodId}`).row()
+      .text(t.deleteAllStock, `admin_clearstock_all_${prodId}`).row()
+      .text(t.back, "admin_del_stock");
+    await ctx.editMessageText(t.stockDeleteOptions(prod.title, available), { reply_markup: kb });
+  } else if (data.startsWith("admin_clearstock_")) {
+    const parts = data.replace("admin_clearstock_", "").split("_");
+    const type = parts[0];
+    const prodId = parseInt(parts[1]);
+    let deleted;
+    if (type === "all") {
+      deleted = await prisma.stockItem.deleteMany({ where: { productId: prodId } });
+    } else {
+      deleted = await prisma.stockItem.deleteMany({ where: { productId: prodId, sold: false } });
+    }
+    const delKb = new InlineKeyboard().text(t.back, "back_admin");
+    await ctx.editMessageText(t.stockDeleted(deleted.count), { reply_markup: delKb });
   } else if (data === "admin_toggle_prod") {
     const products = await prisma.product.findMany({ include: { category: true } });
     if (products.length === 0) {
