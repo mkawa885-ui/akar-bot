@@ -168,8 +168,7 @@ export async function handleBuy(ctx: Context) {
       data: { sold: true, orderId: order.id },
     });
 
-    const backKb = new InlineKeyboard().text(t.back, "back_main");
-    await ctx.editMessageText(t.purchaseSuccess(stockItem.content), { parse_mode: "HTML", reply_markup: backKb });
+    await ctx.api.sendMessage(ctx.from!.id, t.purchaseSuccess(stockItem.content), { parse_mode: "HTML" });
   } else {
     const order = await prisma.order.create({
       data: { userId: user.id, productId: prodId, delivered: false },
@@ -180,8 +179,7 @@ export async function handleBuy(ctx: Context) {
       data: { debt: { increment: actualPrice } },
     });
 
-    const backKb = new InlineKeyboard().text(t.back, "back_main");
-    await ctx.editMessageText(t.purchaseManualSuccess, { reply_markup: backKb });
+    await ctx.api.sendMessage(ctx.from!.id, t.purchaseManualSuccess);
 
     const deliverKb = new InlineKeyboard().text(t.deliverOrder, `admin_deliver_${order.id}`);
     for (const adminId of config.adminIds) {
