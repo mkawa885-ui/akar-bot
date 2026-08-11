@@ -16,8 +16,8 @@ export const t = {
   noCategories: "هیچ بەشێک نییە تا ئێستا.",
   selectProduct: "بەرهەمێک هەڵبژێرە:",
   noProducts: "هیچ بەرهەمێک نییە لەم بەشەدا.",
-  productDetails: (title: string, desc: string, price: number, stock: number, category: string) =>
-    `📦 بەرهەم: ${title}\n📂 بەش: ${category}\n\n📝 وەسف:\n${desc}\n\n💰 نرخی تاکە دانە: ${price.toLocaleString()} دینار\n🟢 ئامادە: ${stock} دانە`,
+  productDetails: (title: string, desc: string, price: number, vipPrice: number | null, stock: number, category: string, role: string) =>
+    `📦 بەرهەم: ${title}\n📂 بەش: ${category}\n\n📝 وەسف:\n${desc}\n\n💰 نرخ: ${price.toLocaleString()} دینار${vipPrice != null ? `\n👑 نرخی VIP: ${vipPrice.toLocaleString()} دینار` : ""}${role === "vip" && vipPrice != null ? `\n✨ تۆ VIP یت — نرخی تۆ: ${vipPrice.toLocaleString()} دینار` : ""}\n🟢 ئامادە: ${stock} دانە`,
   outOfStock: "❌ ئەم بەرهەمە بەردەست نییە.",
   buy: "🛒 بیکڕە",
   back: "🔙 گەڕانەوە",
@@ -86,6 +86,7 @@ export const t = {
   selectCategoryForProduct: "بەشێک هەڵبژێرە بۆ بەرهەمەکە:",
   enterProductTitle: "ناوی بەرهەمەکە بنووسە:",
   enterProductDescription: "وەسفی بەرهەمەکە بنووسە:",
+  enterVipPrice: "نرخی VIP بنووسە (بە ژمارە بە دینار، 0 بۆ بێ نرخی VIP):",
   selectDeliveryType: "جۆری گەیاندن هەڵبژێرە:",
   autoDelivery: "⚡ خۆکارانە (لە ستۆک)",
   manualDelivery: "✋ دەستی (ئامادەکردن)",
@@ -106,15 +107,22 @@ export const t = {
     `📊 ئامارەکان:\n\n👥 بەکارهێنەران: ${users}\n📦 بەرهەمەکان: ${products}\n🛒 داواکارییەکان: ${orders}\n🔑 ستۆکی ئامادە: ${stock}`,
 
   // Account
-  accountInfo: (debt: number, orderCount: number, limit: number) =>
-    `👤 هەژمارەکەم\n\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 کۆی داواکارییەکان: ${orderCount}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}`,
+  accountInfo: (debt: number, orderCount: number, limit: number, role: string) =>
+    `👤 هەژمارەکەم\n\n${role === "vip" ? "👑 VIP" : "📋 Standard"}\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 کۆی داواکارییەکان: ${orderCount}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}`,
   noDebt: "✅ هیچ قەرزێکت نییە!",
   debtLimitReached: "❌ تۆ گەیشتویت بە سنووری قەرزەکەت. تکایە قەرزەکەت بسڕەوە پێش کڕینی نوێ.",
 
   // User management
   userListTitle: "👥 بەکارهێنەران:",
-  userDetail: (name: string, username: string | null, debt: number, orders: number, limit: number) =>
-    `👤 ${name}${username ? ` (@${username})` : ""}\n\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 داواکارییەکان: ${orders}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}`,
+  userDetail: (name: string, username: string | null, debt: number, orders: number, limit: number, role: string) =>
+    `👤 ${name}${username ? ` (@${username})` : ""}\n${role === "vip" ? "👑 VIP" : "📋 Standard"}\n\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 داواکارییەکان: ${orders}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}`,
+  setRole: "👑 گۆڕینی ڕۆڵ",
+  roleStandard: "📋 Standard",
+  roleVip: "👑 VIP",
+  roleChanged: (role: string) => `✅ ڕۆڵی بەکارهێنەر گۆڕدرا بۆ ${role === "vip" ? "👑 VIP" : "📋 Standard"}`,
+  roleChangedNotify: (role: string) => role === "vip"
+    ? "👑 ڕۆڵەکەت گۆڕدرا بۆ VIP! ئێستا نرخی VIP بۆت دەردەکەوێت."
+    : "📋 ڕۆڵەکەت گۆڕدرا بۆ Standard.",
   clearDebt: "🧹 سڕینەوەی قەرز",
   addDebt: "➕ زیادکردنی قەرز",
   setDebtLimit: "🔒 دانانی سنووری قەرز",

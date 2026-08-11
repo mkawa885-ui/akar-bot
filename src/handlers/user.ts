@@ -98,7 +98,7 @@ export async function handleMyAccount(ctx: Context) {
   });
   if (!user) return;
   const kb = new InlineKeyboard().text(t.back, "back_main");
-  await ctx.editMessageText(t.accountInfo(user.debt, user._count.orders, user.debtLimit), { reply_markup: kb });
+  await ctx.editMessageText(t.accountInfo(user.debt, user._count.orders, user.debtLimit, user.role), { reply_markup: kb });
 }
 
 export async function handleMyOrders(ctx: Context) {

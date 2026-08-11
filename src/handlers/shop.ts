@@ -30,7 +30,7 @@ export async function handleStock(ctx: Context) {
     for (const prod of cat.products) {
       const stock = prod.stockItems.length;
       text += `${prod.title} ● ${stock} دانە\n`;
-      text += `▸ ${prod.price.toLocaleString()} دینار\n`;
+      text += `▸ ${prod.price.toLocaleString()} دینار${prod.vipPrice != null ? ` | 👑 ${prod.vipPrice.toLocaleString()} دینار` : ""}\n`;
     }
   }
 
@@ -92,8 +92,10 @@ export async function handleProductSelect(ctx: Context) {
 
   if (!product) return;
 
+  const user = await prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from!.id) } });
+  const userRole = user?.role || "standard";
   const stock = product.stockItems.length;
-  const text = t.productDetails(product.title, product.description, product.price, stock, product.category.name);
+  const text = t.productDetails(product.title, product.description, product.price, product.vipPrice, stock, product.category.name, userRole);
 
   const kb = new InlineKeyboard();
   if (product.autoDeliver) {
@@ -132,7 +134,9 @@ export async function handleBuy(ctx: Context) {
   });
   if (!user) return;
 
-  if (user.debtLimit > 0 && (user.debt + product.price) > user.debtLimit) {
+  const actualPrice = (user.role === "vip" && product.vipPrice != null) ? product.vipPrice : product.price;
+
+  if (user.debtLimit > 0 && (user.debt + actualPrice) > user.debtLimit) {
     const kb = new InlineKeyboard().text(t.back, "back_main");
     await ctx.editMessageText(t.debtLimitReached, { reply_markup: kb });
     return;
@@ -156,7 +160,7 @@ export async function handleBuy(ctx: Context) {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { debt: { increment: product.price } },
+      data: { debt: { increment: actualPrice } },
     });
 
     await prisma.stockItem.update({
@@ -173,7 +177,7 @@ export async function handleBuy(ctx: Context) {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { debt: { increment: product.price } },
+      data: { debt: { increment: actualPrice } },
     });
 
     const backKb = new InlineKeyboard().text(t.back, "back_main");

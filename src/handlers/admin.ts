@@ -142,6 +142,7 @@ export async function handleAdminCallback(ctx: Context) {
         title: st.data.title,
         description: st.data.description,
         price: st.data.price,
+        vipPrice: st.data.vipPrice,
         categoryId: st.data.categoryId,
         autoDeliver,
       },
@@ -204,14 +205,35 @@ export async function handleAdminCallback(ctx: Context) {
       user.username,
       user.debt,
       user._count.orders,
-      user.debtLimit
+      user.debtLimit,
+      user.role
     );
     const kb = new InlineKeyboard()
+      .text(t.setRole, `admin_role_${user.id}`).row()
       .text(t.clearDebt, `admin_cleardebt_${user.id}`).row()
       .text(t.addDebt, `admin_adddebt_${user.id}`).row()
       .text(t.setDebtLimit, `admin_setlimit_${user.id}`).row()
       .text(t.back, "admin_users");
     await ctx.editMessageText(text, { reply_markup: kb });
+  } else if (data.startsWith("admin_role_")) {
+    const userId = parseInt(data.replace("admin_role_", ""));
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+    const kb = new InlineKeyboard()
+      .text(t.roleStandard, `admin_setrole_${userId}_standard`)
+      .text(t.roleVip, `admin_setrole_${userId}_vip`).row()
+      .text(t.back, `admin_user_${userId}`);
+    await ctx.editMessageText(`ڕۆڵی ئێستا: ${user.role === "vip" ? "👑 VIP" : "📋 Standard"}\n\nڕۆڵێک هەڵبژێرە:`, { reply_markup: kb });
+  } else if (data.startsWith("admin_setrole_")) {
+    const parts = data.replace("admin_setrole_", "").split("_");
+    const userId = parseInt(parts[0]);
+    const newRole = parts[1];
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { role: newRole },
+    });
+    await ctx.editMessageText(t.roleChanged(newRole));
+    try { await ctx.api.sendMessage(Number(user.telegramId), t.roleChangedNotify(newRole)); } catch {}
   } else if (data.startsWith("admin_cleardebt_")) {
     const userId = parseInt(data.replace("admin_cleardebt_", ""));
     const user = await prisma.user.update({ where: { id: userId }, data: { debt: 0 } });
@@ -328,8 +350,21 @@ export async function handleAdminMessage(ctx: Context) {
         return true;
       }
       adminState.set(ctx.from.id, {
-        action: "add_product_delivery",
+        action: "add_product_vip_price",
         data: { ...state.data, price },
+      });
+      await ctx.reply(t.enterVipPrice);
+      return true;
+    }
+    case "add_product_vip_price": {
+      const vipPrice = parseFloat(text);
+      if (isNaN(vipPrice) || vipPrice < 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      adminState.set(ctx.from.id, {
+        action: "add_product_delivery",
+        data: { ...state.data, vipPrice: vipPrice > 0 ? vipPrice : null },
       });
       const kb = new InlineKeyboard()
         .text(t.autoDelivery, "admin_delivery_auto")
