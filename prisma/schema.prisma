@@ -15,7 +15,7 @@ model User {
   approved   Boolean  @default(false)
   role       String   @default("standard")
   debt       Float    @default(0)
-  debtLimit  Float    @default(0)
+  debtLimit  Float    @default(100000)
   createdAt  DateTime @default(now())
   orders     Order[]
 }
