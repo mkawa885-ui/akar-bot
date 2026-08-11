@@ -20,21 +20,18 @@ export async function handleAdminPanel(ctx: Context) {
   if (ctx.callbackQuery) await ctx.answerCallbackQuery();
 
   const kb = new InlineKeyboard()
-    .text(t.addCategory, "admin_add_cat").row()
-    .text(t.addProduct, "admin_add_prod").row()
-    .text(t.addStock, "admin_add_stock").row()
-    .text(t.deleteStock, "admin_del_stock").row()
+    // Products & Stock
+    .text(t.addCategory, "admin_add_cat").text(t.addProduct, "admin_add_prod").row()
+    .text(t.addStock, "admin_add_stock").text(t.deleteStock, "admin_del_stock").row()
     .text(t.toggleProduct, "admin_toggle_prod").row()
-    .text(t.deleteCategory, "admin_del_cat").row()
-    .text(t.deleteProduct, "admin_del_prod").row()
-    .text(t.pendingOrders, "admin_pending").row()
-    .text(t.searchStock, "admin_search").row()
-    .text(t.manageUsers, "admin_users").row()
-    .text(t.inventory, "admin_inventory").row()
-    .text(t.stats, "admin_stats").row()
-    .text(t.broadcast, "admin_broadcast").row()
-    .text(t.exportDb, "admin_export_db").row()
-    .text(t.restoreDb, "admin_restore_db").row()
+    .text(t.deleteCategory, "admin_del_cat").text(t.deleteProduct, "admin_del_prod").row()
+    // Orders & Inventory
+    .text(t.pendingOrders, "admin_pending").text(t.searchStock, "admin_search").row()
+    .text(t.inventory, "admin_inventory").text(t.stats, "admin_stats").row()
+    // Users
+    .text(t.manageUsers, "admin_users").text(t.broadcast, "admin_broadcast").row()
+    // System
+    .text(t.exportDb, "admin_export_db").text(t.restoreDb, "admin_restore_db").row()
     .text(t.back, "back_main");
 
   await ctx.editMessageText(t.adminWelcome, { reply_markup: kb });
@@ -251,6 +248,7 @@ export async function handleAdminCallback(ctx: Context) {
       .text(t.clearDebt, `admin_cleardebt_${user.id}`).row()
       .text(t.addDebt, `admin_adddebt_${user.id}`).row()
       .text(t.setDebtLimit, `admin_setlimit_${user.id}`).row()
+      .text(t.revokeAccess, `admin_revoke_${user.id}`).row()
       .text(t.back, "admin_users");
     await ctx.editMessageText(text, { reply_markup: kb });
   } else if (data.startsWith("admin_role_")) {
@@ -285,6 +283,23 @@ export async function handleAdminCallback(ctx: Context) {
     const userId = parseInt(data.replace("admin_setlimit_", ""));
     adminState.set(ctx.from!.id, { action: "set_debt_limit", data: { userId } });
     await ctx.editMessageText(t.enterDebtLimit);
+  } else if (data.startsWith("admin_revoke_")) {
+    const userId = parseInt(data.replace("admin_revoke_", ""));
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+    const kb = new InlineKeyboard()
+      .text(t.revokeYes, `admin_revokeyes_${userId}`).row()
+      .text(t.back, `admin_user_${userId}`);
+    await ctx.editMessageText(t.revokeConfirm(user.firstName || "?"), { reply_markup: kb });
+  } else if (data.startsWith("admin_revokeyes_")) {
+    const userId = parseInt(data.replace("admin_revokeyes_", ""));
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { approved: false },
+    });
+    const kb = new InlineKeyboard().text(t.back, "admin_users");
+    await ctx.editMessageText(t.accessRevoked, { reply_markup: kb });
+    try { await ctx.api.sendMessage(Number(user.telegramId), t.accessRevokedNotify); } catch {}
   } else if (data === "admin_inventory") {
     const products = await prisma.product.findMany({
       include: {

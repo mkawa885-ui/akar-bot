@@ -139,6 +139,11 @@ export const t = {
   debtAdded: (amount: number) => `✅ ${amount.toLocaleString()} دینار قەرز زیادکرا.`,
   debtAddedNotify: (amount: number, total: number) => `📢 ${amount.toLocaleString()} دینار قەرز زیادکرا بە هەژمارەکەت.\n💰 کۆی قەرز: ${total.toLocaleString()} دینار`,
   debtLimitSet: (limit: number) => `✅ سنووری قەرز دانرا بە ${limit > 0 ? limit.toLocaleString() + " دینار" : "بێسنوور"}.`,
+  revokeAccess: "🚫 لابردنی دەستگەیشتن",
+  revokeConfirm: (name: string) => `⚠️ دڵنیایت دەتەوێت دەستگەیشتنی "${name}" لاببەیت؟\n\nئەم بەکارهێنەرە چیتر ناتوانێت بۆتەکە بەکاربهێنێت.`,
+  revokeYes: "🚫 بەڵێ، لایببە",
+  accessRevoked: "✅ دەستگەیشتنی بەکارهێنەرەکە لابرا.",
+  accessRevokedNotify: "🚫 دەستگەیشتنت لە بۆتەکە لابرا. تۆ چیتر ناتوانیت بۆتەکە بەکاربهێنیت.",
   noUsers: "هیچ بەکارهێنەرێک نییە.",
 
   // Approval
