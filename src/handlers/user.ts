@@ -3,6 +3,9 @@ import { prisma } from "../db";
 import { config, isAdmin } from "../config";
 import { t } from "../texts";
 
+const approvalRequests = new Map<number, number[]>();
+const MAX_REQUESTS_PER_DAY = 2;
+
 export async function ensureUser(ctx: Context) {
   if (!ctx.from) return null;
   return prisma.user.upsert({
@@ -31,6 +34,19 @@ export async function handleStart(ctx: Context) {
   if (!user) return;
 
   if (!user.approved && !isAdmin(ctx.from!.id)) {
+    const userId = ctx.from!.id;
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+    const timestamps = (approvalRequests.get(userId) || []).filter(ts => ts > dayAgo);
+
+    if (timestamps.length >= MAX_REQUESTS_PER_DAY) {
+      await ctx.reply(t.requestLimitReached);
+      return;
+    }
+
+    timestamps.push(now);
+    approvalRequests.set(userId, timestamps);
+
     await ctx.reply(t.pendingApproval);
     const kb = new InlineKeyboard()
       .text("✅ پەسەند", `approve_${ctx.from!.id}`)

@@ -149,6 +149,7 @@ export const t = {
   noUsers: "No users found.",
 
   // Approval
+  requestLimitReached: "⚠️ تۆ بە زۆری داواکاریت ناردووە ئەمڕۆ. تکایە سبەی هەوڵبدەرەوە.",
   pendingApproval: "⏳ داواکاریت بۆ بەکارهێنانی بۆتەکە نێردرا.\nتکایە چاوەڕوان بە تا ئەدمین پەسەندت بکات.",
   newUserRequest: (userId: number, name: string, username: string | undefined) =>
     `🆕 New user request:\n\n👤 Name: ${name}\n🆔 ID: ${userId}${username ? `\n📧 @${username}` : ""}\n\nApprove?`,
