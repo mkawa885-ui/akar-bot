@@ -128,12 +128,17 @@ export async function handleAdminCallback(ctx: Context) {
     const parts = data.replace("admin_clearstock_", "").split("_");
     const type = parts[0];
     const prodId = parseInt(parts[1]);
-    let deleted;
-    if (type === "all") {
-      deleted = await prisma.stockItem.deleteMany({ where: { productId: prodId } });
-    } else {
-      deleted = await prisma.stockItem.deleteMany({ where: { productId: prodId, sold: false } });
+    const where = type === "all" ? { productId: prodId } : { productId: prodId, sold: false };
+    const items = await prisma.stockItem.findMany({ where });
+    if (items.length > 0) {
+      const content = items.map(i => i.content).join("\n");
+      // Split into chunks if too long for one message
+      const chunks = content.match(/[\s\S]{1,4000}/g) || [];
+      for (const chunk of chunks) {
+        await ctx.api.sendMessage(ctx.from!.id, `<code>${chunk}</code>`, { parse_mode: "HTML" });
+      }
     }
+    const deleted = await prisma.stockItem.deleteMany({ where });
     const delKb = new InlineKeyboard().text(t.back, "back_admin");
     await ctx.editMessageText(t.stockDeleted(deleted.count), { reply_markup: delKb });
   } else if (data === "admin_toggle_prod") {
