@@ -183,6 +183,16 @@ export async function handleAdminCallback(ctx: Context) {
     await ctx.editMessageText(t.selectCategoryToDelete, { reply_markup: kb });
   } else if (data.startsWith("admin_delcat_")) {
     const catId = parseInt(data.replace("admin_delcat_", ""));
+    const items = await prisma.stockItem.findMany({
+      where: { product: { categoryId: catId }, sold: false },
+    });
+    if (items.length > 0) {
+      const content = items.map(i => i.content).join("\n");
+      const chunks = content.match(/[\s\S]{1,4000}/g) || [];
+      for (const chunk of chunks) {
+        await ctx.api.sendMessage(ctx.from!.id, `<code>${chunk}</code>`, { parse_mode: "HTML" });
+      }
+    }
     await prisma.category.delete({ where: { id: catId } });
     const kb = new InlineKeyboard().text(t.back, "back_admin");
     await ctx.editMessageText(t.categoryDeleted, { reply_markup: kb });
@@ -201,6 +211,14 @@ export async function handleAdminCallback(ctx: Context) {
     await ctx.editMessageText(t.selectProductToDelete, { reply_markup: kb });
   } else if (data.startsWith("admin_delprod_")) {
     const prodId = parseInt(data.replace("admin_delprod_", ""));
+    const items = await prisma.stockItem.findMany({ where: { productId: prodId, sold: false } });
+    if (items.length > 0) {
+      const content = items.map(i => i.content).join("\n");
+      const chunks = content.match(/[\s\S]{1,4000}/g) || [];
+      for (const chunk of chunks) {
+        await ctx.api.sendMessage(ctx.from!.id, `<code>${chunk}</code>`, { parse_mode: "HTML" });
+      }
+    }
     await prisma.product.delete({ where: { id: prodId } });
     const kb = new InlineKeyboard().text(t.back, "back_admin");
     await ctx.editMessageText(t.productDeleted, { reply_markup: kb });
