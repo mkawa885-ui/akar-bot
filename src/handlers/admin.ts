@@ -23,7 +23,7 @@ export async function handleAdminPanel(ctx: Context) {
     // Products & Stock
     .text(t.addCategory, "admin_add_cat").text(t.addProduct, "admin_add_prod").row()
     .text(t.addStock, "admin_add_stock").text(t.deleteStock, "admin_del_stock").row()
-    .text(t.toggleProduct, "admin_toggle_prod").row()
+    .text(t.toggleProduct, "admin_toggle_prod").text(t.changePrice, "admin_change_price").row()
     .text(t.deleteCategory, "admin_del_cat").text(t.deleteProduct, "admin_del_prod").row()
     // Orders & Inventory
     .text(t.pendingOrders, "admin_pending").text(t.searchStock, "admin_search").row()
@@ -167,6 +167,42 @@ export async function handleAdminCallback(ctx: Context) {
       updated.enabled ? t.productEnabled(updated.title) : t.productDisabled(updated.title),
       { reply_markup: togKb }
     );
+  } else if (data === "admin_change_price") {
+    const products = await prisma.product.findMany({ include: { category: true } });
+    if (products.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noProducts, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const prod of products) {
+      const priceInfo = `${prod.price.toLocaleString()}${prod.vipPrice != null ? ` / VIP: ${prod.vipPrice.toLocaleString()}` : ""}`;
+      kb.text(`${prod.category.name} > ${prod.title} (${priceInfo})`, `admin_priceprod_${prod.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.selectProductToChangePrice, { reply_markup: kb });
+  } else if (data.startsWith("admin_priceprod_")) {
+    const prodId = parseInt(data.replace("admin_priceprod_", ""));
+    const prod = await prisma.product.findUnique({ where: { id: prodId } });
+    if (!prod) return;
+    const kb = new InlineKeyboard()
+      .text(t.changeStandardPrice, `admin_setprice_${prodId}`).row()
+      .text(t.changeVipPrice, `admin_setvipprice_${prodId}`).row()
+      .text(t.back, "admin_change_price");
+    await ctx.editMessageText(
+      `${prod.title}\n\n💰 Standard: ${prod.price.toLocaleString()} IQD\n👑 VIP: ${prod.vipPrice != null ? prod.vipPrice.toLocaleString() + " IQD" : "N/A"}`,
+      { reply_markup: kb }
+    );
+  } else if (data.startsWith("admin_setprice_")) {
+    const prodId = parseInt(data.replace("admin_setprice_", ""));
+    adminState.set(ctx.from!.id, { action: "change_price", data: { productId: prodId } });
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterNewPrice, { reply_markup: kb });
+  } else if (data.startsWith("admin_setvipprice_")) {
+    const prodId = parseInt(data.replace("admin_setvipprice_", ""));
+    adminState.set(ctx.from!.id, { action: "change_vip_price", data: { productId: prodId } });
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterNewVipPrice, { reply_markup: kb });
   } else if (data === "admin_del_cat") {
     const categories = await prisma.category.findMany();
     if (categories.length === 0) {
@@ -588,6 +624,34 @@ export async function handleAdminMessage(ctx: Context) {
       });
       clearAdminState(ctx.from.id);
       await ctx.reply(t.debtLimitSet(limit));
+      return true;
+    }
+    case "change_price": {
+      const price = parseFloat(text);
+      if (isNaN(price) || price <= 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      const prod = await prisma.product.update({
+        where: { id: state.data.productId },
+        data: { price },
+      });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.priceChanged(prod.title, price));
+      return true;
+    }
+    case "change_vip_price": {
+      const vipPrice = parseFloat(text);
+      if (isNaN(vipPrice) || vipPrice < 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      const prod = await prisma.product.update({
+        where: { id: state.data.productId },
+        data: { vipPrice: vipPrice > 0 ? vipPrice : null },
+      });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.vipPriceChanged(prod.title, vipPrice));
       return true;
     }
   }
