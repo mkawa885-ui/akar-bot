@@ -129,10 +129,9 @@ export async function handleAdminCallback(ctx: Context) {
     const type = parts[0];
     const prodId = parseInt(parts[1]);
     const where = type === "all" ? { productId: prodId } : { productId: prodId, sold: false };
-    const items = await prisma.stockItem.findMany({ where });
-    if (items.length > 0) {
-      const content = items.map(i => i.content).join("\n");
-      // Split into chunks if too long for one message
+    const unsoldItems = await prisma.stockItem.findMany({ where: { productId: prodId, sold: false } });
+    if (unsoldItems.length > 0) {
+      const content = unsoldItems.map(i => i.content).join("\n");
       const chunks = content.match(/[\s\S]{1,4000}/g) || [];
       for (const chunk of chunks) {
         await ctx.api.sendMessage(ctx.from!.id, `<code>${chunk}</code>`, { parse_mode: "HTML" });
