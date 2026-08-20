@@ -63,7 +63,7 @@ export const t = {
 
   // Support
   supportMessage: (username: string) =>
-    `💬 بۆ پشتگیری پەیوەندی بکە بە:\n@${username}`,
+    `💬 بۆ پشتگیری پەیوەندی بکە بە:\n@${username.replace(/^@/, "")}`,
 
   // Admin
   adminWelcome: "Welcome to Admin Panel ⚙️",
