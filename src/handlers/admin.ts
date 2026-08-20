@@ -352,6 +352,7 @@ export async function handleAdminCallback(ctx: Context) {
       .text(t.clearDebt, `admin_cleardebt_${user.id}`).row()
       .text(t.addDebt, `admin_adddebt_${user.id}`).row()
       .text(t.setDebtLimit, `admin_setlimit_${user.id}`).row()
+      .text("📄 Purchase History", `admin_history_${user.id}`).row()
       .text(t.revokeAccess, `admin_revoke_${user.id}`).row()
       .text(t.back, "admin_users");
     await ctx.editMessageText(text, { reply_markup: kb });
@@ -406,6 +407,75 @@ export async function handleAdminCallback(ctx: Context) {
     adminState.set(ctx.from!.id, { action: "set_debt_limit", data: { userId } });
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.enterDebtLimit, { reply_markup: kb });
+  } else if (data.startsWith("admin_history_")) {
+    const userId = parseInt(data.replace("admin_history_", ""));
+    const kb = new InlineKeyboard()
+      .text("💰 Current Debt", `admin_histdebt_${userId}`).row()
+      .text("📋 Lifetime", `admin_histall_${userId}`).row()
+      .text(t.back, `admin_user_${userId}`);
+    await ctx.editMessageText("Select purchase history range:", { reply_markup: kb });
+  } else if (data.startsWith("admin_histdebt_") || data.startsWith("admin_histall_")) {
+    const isDebt = data.startsWith("admin_histdebt_");
+    const userId = parseInt(data.replace(/^admin_hist(debt|all)_/, ""));
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+
+    const orders = await prisma.order.findMany({
+      where: { userId },
+      include: { product: { include: { category: true } }, stockItems: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    let selectedOrders = orders;
+    if (isDebt && user.debt > 0) {
+      let total = 0;
+      selectedOrders = [];
+      for (const order of orders) {
+        const price = (user.role === "vip" && order.product.vipPrice != null) ? order.product.vipPrice : order.product.price;
+        total += price;
+        selectedOrders.push(order);
+        if (total >= user.debt) break;
+      }
+    } else if (isDebt && user.debt <= 0) {
+      selectedOrders = [];
+    }
+
+    const label = isDebt ? "Current Debt" : "Lifetime";
+    let txt = `Purchase History - ${user.firstName || "?"}${user.username ? ` (@${user.username})` : ""}\n`;
+    txt += `Range: ${label}\n`;
+    txt += `Generated: ${new Date().toISOString().split("T")[0]}\n`;
+    txt += `Current Debt: ${user.debt.toLocaleString()} IQD\n`;
+    txt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    if (selectedOrders.length === 0) {
+      txt += "No orders found.\n";
+    } else {
+      let totalSpent = 0;
+      for (let i = 0; i < selectedOrders.length; i++) {
+        const o = selectedOrders[i];
+        const price = (user.role === "vip" && o.product.vipPrice != null) ? o.product.vipPrice : o.product.price;
+        totalSpent += price;
+        txt += `#${i + 1} | ${o.createdAt.toLocaleString("en-US")}\n`;
+        txt += `   Product: ${o.product.category.name} > ${o.product.title}\n`;
+        txt += `   Price: ${price.toLocaleString()} IQD\n`;
+        txt += `   Status: ${o.delivered ? "Delivered" : "Pending"}\n`;
+        const stock = o.stockItems.find(s => s.orderId === o.id);
+        if (stock) {
+          txt += `   Content: ${stock.content}\n`;
+        }
+        txt += `\n`;
+      }
+      txt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      txt += `Total Orders: ${selectedOrders.length}\n`;
+      txt += `Total Spent: ${totalSpent.toLocaleString()} IQD\n`;
+    }
+
+    const filePath = path.resolve(__dirname, `../../history-${user.id}-${Date.now()}.txt`);
+    fs.writeFileSync(filePath, txt);
+    await ctx.api.sendDocument(ctx.from!.id, new InputFile(filePath, `history-${user.firstName || "user"}-${label.replace(" ", "-")}.txt`));
+    fs.unlinkSync(filePath);
+    const kb = new InlineKeyboard().text(t.back, `admin_user_${userId}`);
+    await ctx.editMessageText(`📄 Purchase history (${label}) sent as file.`, { reply_markup: kb });
   } else if (data.startsWith("admin_revoke_")) {
     const userId = parseInt(data.replace("admin_revoke_", ""));
     const user = await prisma.user.findUnique({ where: { id: userId } });
