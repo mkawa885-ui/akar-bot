@@ -4,6 +4,7 @@ import path from "path";
 import { prisma } from "../db";
 import { isAdmin } from "../config";
 import { t } from "../texts";
+import { buildPurchaseSummary } from "./user";
 
 const adminState = new Map<number, { action: string; data?: any }>();
 
@@ -318,16 +319,18 @@ export async function handleAdminCallback(ctx: Context) {
     const userId = parseInt(data.replace("admin_user_", ""));
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { _count: { select: { orders: true } } },
+      include: { orders: { include: { product: true } } },
     });
     if (!user) return;
+    const summary = buildPurchaseSummary(user.orders);
     const text = t.userDetail(
       user.firstName || "?",
       user.username,
       user.debt,
-      user._count.orders,
+      user.orders.length,
       user.debtLimit,
-      user.role
+      user.role,
+      summary
     );
     const kb = new InlineKeyboard()
       .text(t.setRole, `admin_role_${user.id}`).row()

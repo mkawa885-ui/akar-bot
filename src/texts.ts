@@ -123,15 +123,15 @@ export const t = {
     `📊 Statistics:\n\n👥 Users: ${users}\n📦 Products: ${products}\n🛒 Orders: ${orders}\n🔑 Available Stock: ${stock}`,
 
   // Account
-  accountInfo: (debt: number, orderCount: number, limit: number, role: string) =>
-    `👤 هەژمارەکەم\n\n${role === "vip" ? "👑 VIP" : "📋 Standard"}\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 کۆی داواکارییەکان: ${orderCount}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}`,
+  accountInfo: (debt: number, orderCount: number, limit: number, role: string, purchaseSummary: string) =>
+    `👤 هەژمارەکەم\n\n${role === "vip" ? "👑 VIP" : "📋 Standard"}\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 کۆی داواکارییەکان: ${orderCount}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}${purchaseSummary ? `\n\n🛒 کڕینەکان:\n${purchaseSummary}` : ""}`,
   noDebt: "✅ هیچ قەرزێکت نییە!",
   debtLimitReached: "❌ تۆ گەیشتویت بە سنووری قەرزەکەت. تکایە قەرزەکەت بسڕەوە پێش کڕینی نوێ.",
 
   // User management
   userListTitle: "👥 Users:",
-  userDetail: (name: string, username: string | null, debt: number, orders: number, limit: number, role: string) =>
-    `👤 ${name}${username ? ` (@${username})` : ""}\n${role === "vip" ? "👑 VIP" : "📋 Standard"}\n\n💰 Debt: ${debt.toLocaleString()} IQD\n📦 Orders: ${orders}\n🔒 Debt Limit: ${limit > 0 ? limit.toLocaleString() + " IQD" : "Unlimited"}`,
+  userDetail: (name: string, username: string | null, debt: number, orders: number, limit: number, role: string, purchaseSummary: string) =>
+    `👤 ${name}${username ? ` (@${username})` : ""}\n${role === "vip" ? "👑 VIP" : "📋 Standard"}\n\n💰 Debt: ${debt.toLocaleString()} IQD\n📦 Orders: ${orders}\n🔒 Debt Limit: ${limit > 0 ? limit.toLocaleString() + " IQD" : "Unlimited"}${purchaseSummary ? `\n\n🛒 Purchases:\n${purchaseSummary}` : ""}`,
   setRole: "👑 Change Role",
   roleStandard: "📋 Standard",
   roleVip: "👑 VIP",

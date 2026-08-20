@@ -3,6 +3,17 @@ import { prisma } from "../db";
 import { config, isAdmin } from "../config";
 import { t } from "../texts";
 
+function buildPurchaseSummary(orders: { product: { title: string } }[]): string {
+  const counts = new Map<string, number>();
+  for (const o of orders) {
+    counts.set(o.product.title, (counts.get(o.product.title) || 0) + 1);
+  }
+  if (counts.size === 0) return "";
+  return Array.from(counts.entries()).map(([title, count]) => `${count}x ${title}`).join("\n");
+}
+
+export { buildPurchaseSummary };
+
 const approvalRequests = new Map<number, number[]>();
 const MAX_REQUESTS_PER_DAY = 2;
 
@@ -110,11 +121,12 @@ export async function handleMyAccount(ctx: Context) {
   await ensureUser(ctx);
   const user = await prisma.user.findUnique({
     where: { telegramId: BigInt(ctx.from!.id) },
-    include: { _count: { select: { orders: true } } },
+    include: { orders: { include: { product: true } } },
   });
   if (!user) return;
+  const summary = buildPurchaseSummary(user.orders);
   const kb = new InlineKeyboard().text(t.back, "back_main");
-  await ctx.editMessageText(t.accountInfo(user.debt, user._count.orders, user.debtLimit, user.role), { reply_markup: kb });
+  await ctx.editMessageText(t.accountInfo(user.debt, user.orders.length, user.debtLimit, user.role, summary), { reply_markup: kb });
 }
 
 export async function handleMyOrders(ctx: Context) {
