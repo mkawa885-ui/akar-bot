@@ -359,10 +359,13 @@ export async function handleAdminCallback(ctx: Context) {
     try { await ctx.api.sendMessage(Number(user.telegramId), t.roleChangedNotify(newRole)); } catch {}
   } else if (data.startsWith("admin_cleardebt_")) {
     const userId = parseInt(data.replace("admin_cleardebt_", ""));
+    const oldUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!oldUser) return;
+    const clearedAmount = oldUser.debt;
     const user = await prisma.user.update({ where: { id: userId }, data: { debt: 0 } });
     const debtKb = new InlineKeyboard().text(t.back, `admin_user_${userId}`);
-    await ctx.editMessageText(t.debtCleared, { reply_markup: debtKb });
-    try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotify); } catch {}
+    await ctx.editMessageText(t.debtClearedAmount(oldUser.firstName || "?", clearedAmount), { reply_markup: debtKb });
+    try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(clearedAmount)); } catch {}
   } else if (data.startsWith("admin_adddebt_")) {
     const userId = parseInt(data.replace("admin_adddebt_", ""));
     adminState.set(ctx.from!.id, { action: "add_debt", data: { userId } });
