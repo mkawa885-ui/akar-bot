@@ -377,6 +377,13 @@ export async function handleAdminCallback(ctx: Context) {
     try { await ctx.api.sendMessage(Number(user.telegramId), t.roleChangedNotify(newRole)); } catch {}
   } else if (data.startsWith("admin_cleardebt_")) {
     const userId = parseInt(data.replace("admin_cleardebt_", ""));
+    const kb = new InlineKeyboard()
+      .text("🧹 Clear All", `admin_clearall_${userId}`).row()
+      .text("💰 Custom Amount", `admin_partialdebt_${userId}`).row()
+      .text(t.back, `admin_user_${userId}`);
+    await ctx.editMessageText("How much debt to clear?", { reply_markup: kb });
+  } else if (data.startsWith("admin_clearall_")) {
+    const userId = parseInt(data.replace("admin_clearall_", ""));
     const oldUser = await prisma.user.findUnique({ where: { id: userId } });
     if (!oldUser) return;
     const clearedAmount = oldUser.debt;
@@ -384,6 +391,11 @@ export async function handleAdminCallback(ctx: Context) {
     const debtKb = new InlineKeyboard().text(t.back, `admin_user_${userId}`);
     await ctx.editMessageText(t.debtClearedAmount(oldUser.firstName || "?", clearedAmount), { reply_markup: debtKb });
     try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(clearedAmount)); } catch {}
+  } else if (data.startsWith("admin_partialdebt_")) {
+    const userId = parseInt(data.replace("admin_partialdebt_", ""));
+    adminState.set(ctx.from!.id, { action: "partial_debt", data: { userId } });
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText("Enter the amount to deduct (number in IQD):", { reply_markup: kb });
   } else if (data.startsWith("admin_adddebt_")) {
     const userId = parseInt(data.replace("admin_adddebt_", ""));
     adminState.set(ctx.from!.id, { action: "add_debt", data: { userId } });
@@ -624,6 +636,24 @@ export async function handleAdminMessage(ctx: Context) {
       clearAdminState(ctx.from.id);
       await ctx.reply(t.debtAdded(updatedUser.firstName || "User", amount));
       try { await ctx.api.sendMessage(Number(updatedUser.telegramId), t.debtAddedNotify(amount, updatedUser.debt)); } catch {}
+      return true;
+    }
+    case "partial_debt": {
+      const amount = parseFloat(text);
+      if (isNaN(amount) || amount <= 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      const oldUser = await prisma.user.findUnique({ where: { id: state.data.userId } });
+      if (!oldUser) return true;
+      const deductAmount = Math.min(amount, oldUser.debt);
+      const user = await prisma.user.update({
+        where: { id: state.data.userId },
+        data: { debt: { decrement: deductAmount } },
+      });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.debtClearedAmount(oldUser.firstName || "?", deductAmount));
+      try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(deductAmount)); } catch {}
       return true;
     }
     case "set_debt_limit": {
