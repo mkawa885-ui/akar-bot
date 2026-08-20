@@ -43,16 +43,10 @@ export async function handleAdminCallback(ctx: Context) {
 
   const data = ctx.callbackQuery!.data!;
 
-  // Clear any pending admin state when navigating
-  if (!data.startsWith("admin_delivery_")) {
-    const currentState = adminState.get(ctx.from!.id);
-    if (currentState && data !== "admin_cancel") {
-      // Keep state only for flows that use callbacks mid-state
-      const keepState = ["add_product_delivery"].includes(currentState.action);
-      if (!keepState && !data.startsWith("admin_prod_cat_") && !data.startsWith("admin_stock_prod_")) {
-        clearAdminState(ctx.from!.id);
-      }
-    }
+  // Clear state unless mid-flow callback
+  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_"];
+  if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel") {
+    clearAdminState(ctx.from!.id);
   }
 
   if (data === "admin_cancel") {

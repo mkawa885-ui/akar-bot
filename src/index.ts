@@ -19,6 +19,7 @@ import {
   handleAdminMessage,
   handleAdminDocument,
   getAdminState,
+  clearAdminState,
 } from "./handlers/admin";
 
 const bot = new Bot(config.botToken);
@@ -39,6 +40,22 @@ bot.use(async (ctx, next) => {
       await ctx.answerCallbackQuery({ text: "⏳ چاوەڕوان بە بۆ پەسەندکردن" });
     }
   }
+});
+
+// Clear admin state when navigating away (any non-admin callback or main menu)
+bot.use(async (ctx, next) => {
+  if (ctx.from && ctx.callbackQuery?.data) {
+    const data = ctx.callbackQuery.data;
+    const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_"];
+    const shouldKeep = keepPrefixes.some(p => data.startsWith(p));
+    if (!shouldKeep && !data.startsWith("admin_")) {
+      clearAdminState(ctx.from.id);
+    }
+  }
+  if (ctx.from && ctx.message?.text?.startsWith("/")) {
+    clearAdminState(ctx.from.id);
+  }
+  await next();
 });
 
 bot.callbackQuery("menu_shop", handleShop);
