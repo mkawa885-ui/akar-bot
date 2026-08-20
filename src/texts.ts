@@ -107,6 +107,8 @@ export const t = {
   selectProductForStock: "Select a product to add stock:",
   enterStockItems: "Enter stock items, one per line:\n\nExample:\nemail@mail.com:pass123\nemail2@mail.com:pass456",
   stockAdded: (count: number) => `✅ ${count} stock items added!`,
+  confirmStockAdd: (count: number, title: string) => `⚠️ Add ${count} item(s) to "${title}"?\n\nConfirm?`,
+  stockAddedTo: (count: number, title: string) => `✅ ${count} item(s) added to "${title}".`,
   selectCategoryToDelete: "Select a category to delete:",
   categoryDeleted: "✅ Category deleted!",
   selectProductForStockDelete: "Select a product to delete stock:",

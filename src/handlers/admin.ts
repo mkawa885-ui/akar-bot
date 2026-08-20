@@ -54,6 +54,21 @@ export async function handleAdminCallback(ctx: Context) {
     clearAdminState(ctx.from!.id);
     await handleAdminPanel(ctx);
     return;
+  } else if (data === "admin_confirmstock") {
+    const state = adminState.get(ctx.from!.id);
+    if (state?.action === "confirm_stock" && state.data?.items) {
+      const product = await prisma.product.findUnique({ where: { id: state.data.productId } });
+      await prisma.stockItem.createMany({
+        data: state.data.items.map((content: string) => ({
+          content,
+          productId: state.data.productId,
+        })),
+      });
+      clearAdminState(ctx.from!.id);
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.stockAddedTo(state.data.items.length, product?.title || "?"), { reply_markup: kb });
+    }
+    return;
   } else if (data === "admin_add_cat") {
     adminState.set(ctx.from!.id, { action: "add_category" });
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
@@ -529,14 +544,13 @@ export async function handleAdminMessage(ctx: Context) {
         .split("\n")
         .map((line: string) => line.trim())
         .filter((line: string) => line.length > 0);
-      await prisma.stockItem.createMany({
-        data: items.map((content: string) => ({
-          content,
-          productId: state.data.productId,
-        })),
-      });
-      clearAdminState(ctx.from.id);
-      await ctx.reply(t.stockAdded(items.length));
+      const product = await prisma.product.findUnique({ where: { id: state.data.productId } });
+      if (!product) return true;
+      adminState.set(ctx.from.id, { action: "confirm_stock", data: { productId: state.data.productId, items } });
+      const kb = new InlineKeyboard()
+        .text("✅ Yes, Add", "admin_confirmstock")
+        .text(t.cancel, "admin_cancel");
+      await ctx.reply(t.confirmStockAdd(items.length, product.title), { reply_markup: kb });
       return true;
     }
     case "broadcast": {
