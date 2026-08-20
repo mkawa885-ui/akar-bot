@@ -605,7 +605,7 @@ export async function handleAdminMessage(ctx: Context) {
         data: { debt: { increment: amount } },
       });
       clearAdminState(ctx.from.id);
-      await ctx.reply(t.debtAdded(amount));
+      await ctx.reply(t.debtAdded(updatedUser.firstName || "User", amount));
       try { await ctx.api.sendMessage(Number(updatedUser.telegramId), t.debtAddedNotify(amount, updatedUser.debt)); } catch {}
       return true;
     }
