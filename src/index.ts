@@ -88,7 +88,7 @@ async function autoBackup() {
     for (const adminId of config.adminIds) {
       try {
         await bot.api.sendDocument(adminId, new InputFile(backupPath, `auto-backup-${date}.json`), {
-          caption: "💾 باکئەپی خۆکارانە (24 کاتژمێر)",
+          caption: "💾 Auto Backup (24h)",
         });
       } catch {}
     }

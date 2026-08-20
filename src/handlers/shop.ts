@@ -23,14 +23,18 @@ export async function handleStock(ctx: Context) {
     return;
   }
 
+  const user = await prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from!.id) } });
+  const userRole = user?.role || "standard";
+
   let text = "📦 ستۆک\n━━━━━━━━━━━━━━━\n";
   for (const cat of categories) {
     if (cat.products.length === 0) continue;
     text += `\n💳 ${cat.name}\n─────────────────────\n`;
     for (const prod of cat.products) {
       const stock = prod.stockItems.length;
+      const displayPrice = (userRole === "vip" && prod.vipPrice != null) ? prod.vipPrice : prod.price;
       text += `${prod.title} ● ${stock} دانە\n`;
-      text += `▸ ${prod.price.toLocaleString()} دینار${prod.vipPrice != null ? ` | 👑 ${prod.vipPrice.toLocaleString()} دینار` : ""}\n`;
+      text += `▸ ${displayPrice.toLocaleString()} دینار\n`;
     }
   }
 
@@ -186,7 +190,7 @@ export async function handleBuy(ctx: Context) {
       try {
         await ctx.api.sendMessage(
           adminId,
-          t.manualOrderNotify(order.id, ctx.from!.first_name || "?", ctx.from!.username, product.title, product.category.name, product.price),
+          t.manualOrderNotify(order.id, ctx.from!.first_name || "?", ctx.from!.username, product.title, product.category.name, actualPrice),
           { reply_markup: deliverKb }
         );
       } catch {}
@@ -201,7 +205,7 @@ export async function handleBuy(ctx: Context) {
       ctx.from!.username,
       prodInfo.title,
       prodInfo.category.name,
-      prodInfo.price,
+      actualPrice,
       updatedUser.debt
     );
     for (const adminId of config.adminIds) {

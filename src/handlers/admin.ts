@@ -315,7 +315,7 @@ export async function handleAdminCallback(ctx: Context) {
     }
     const kb = new InlineKeyboard();
     for (const user of users) {
-      const label = `${user.firstName || "?"} - ${user.debt.toLocaleString()} دینار (${user._count.orders})`;
+      const label = `${user.firstName || "?"} - ${user.debt.toLocaleString()} IQD (${user._count.orders})`;
       kb.text(label, `admin_user_${user.id}`).row();
     }
     kb.text(t.back, "back_admin");
@@ -559,7 +559,7 @@ export async function handleAdminMessage(ctx: Context) {
       });
       if (!order) {
         clearAdminState(ctx.from.id);
-        await ctx.reply(t.restoreFailed);
+        await ctx.reply("❌ Order not found.");
         return true;
       }
       await prisma.order.update({
