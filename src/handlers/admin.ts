@@ -549,9 +549,18 @@ export async function handleAdminCallback(ctx: Context) {
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.restoreDbPrompt, { reply_markup: kb });
   } else if (data === "admin_broadcast") {
-    adminState.set(ctx.from!.id, { action: "broadcast" });
+    const kb = new InlineKeyboard()
+      .text("📢 All Users", "admin_bcast_all").row()
+      .text("📋 Standard Only", "admin_bcast_standard").row()
+      .text("👑 VIP Only", "admin_bcast_vip").row()
+      .text(t.back, "back_admin");
+    await ctx.editMessageText("Select broadcast audience:", { reply_markup: kb });
+  } else if (data === "admin_bcast_all" || data === "admin_bcast_standard" || data === "admin_bcast_vip") {
+    const audience = data.replace("admin_bcast_", "");
+    adminState.set(ctx.from!.id, { action: "broadcast", data: { audience } });
+    const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : "Standard users";
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
-    await ctx.editMessageText(t.enterBroadcast, { reply_markup: kb });
+    await ctx.editMessageText(`Enter the message to broadcast to ${label}:`, { reply_markup: kb });
   }
 }
 
@@ -636,7 +645,11 @@ export async function handleAdminMessage(ctx: Context) {
       return true;
     }
     case "broadcast": {
-      const users = await prisma.user.findMany();
+      const audience = state.data?.audience || "all";
+      const where: any = {};
+      if (audience === "standard") where.role = "standard";
+      else if (audience === "vip") where.role = "vip";
+      const users = await prisma.user.findMany({ where });
       let sent = 0;
       for (const user of users) {
         try {
@@ -645,7 +658,8 @@ export async function handleAdminMessage(ctx: Context) {
         } catch {}
       }
       clearAdminState(ctx.from.id);
-      await ctx.reply(t.broadcastSent(sent));
+      const label = audience === "all" ? "" : audience === "vip" ? " VIP" : " Standard";
+      await ctx.reply(`✅ Message sent to ${sent}${label} users.`);
       return true;
     }
     case "deliver_order": {
