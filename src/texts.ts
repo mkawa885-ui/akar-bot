@@ -149,7 +149,7 @@ export const t = {
   debtCleared: "✅ Debt cleared!",
   debtClearedAmount: (name: string, amount: number) => `✅ ${amount.toLocaleString()} IQD debt cleared from ${name}.`,
   debtClearedNotify: "✅ قەرزەکەت سڕایەوە! ئێستا هیچ قەرزێکت نییە.",
-  debtClearedNotifyAmount: (amount: number) => `✅ ${amount.toLocaleString()} دینار قەرز سڕایەوە لە هەژمارەکەت.\nئێستا هیچ قەرزێکت نییە.`,
+  debtClearedNotifyAmount: (amount: number, remaining: number) => `✅ ${amount.toLocaleString()} دینار قەرز سڕایەوە لە هەژمارەکەت.${remaining <= 0 ? "\nئێستا هیچ قەرزێکت نییە." : `\n💰 قەرزی ماوە: ${remaining.toLocaleString()} دینار`}`,
   debtAdded: (name: string, amount: number) => `✅ ${amount.toLocaleString()} IQD debt added to ${name}.`,
   debtAddedNotify: (amount: number, total: number) => `📢 ${amount.toLocaleString()} دینار قەرز زیادکرا بە هەژمارەکەت.\n💰 کۆی قەرز: ${total.toLocaleString()} دینار`,
   debtLimitSet: (limit: number) => `✅ Debt limit set to ${limit > 0 ? limit.toLocaleString() + " IQD" : "Unlimited"}.`,

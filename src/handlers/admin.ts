@@ -46,7 +46,7 @@ export async function handleAdminCallback(ctx: Context) {
 
   // Clear state unless mid-flow callback
   const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_"];
-  if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel" && data !== "admin_confirmstock" && data !== "admin_confirmbcast") {
+  if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel" && data !== "admin_confirmstock" && data !== "admin_confirmbcast" && data !== "admin_delivery_auto" && data !== "admin_delivery_manual") {
     clearAdminState(ctx.from!.id);
   }
 
@@ -86,7 +86,8 @@ export async function handleAdminCallback(ctx: Context) {
       }
       clearAdminState(ctx.from!.id);
       const label = audience === "all" ? "" : audience === "vip" ? " VIP" : " Standard";
-      await ctx.editMessageText(`✅ Message sent to ${sent}${label} users.`);
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(`✅ Message sent to ${sent}${label} users.`, { reply_markup: kb });
     }
     return;
   } else if (data === "admin_add_cat") {
@@ -410,7 +411,7 @@ export async function handleAdminCallback(ctx: Context) {
     const clearedAmount = oldUser.debt;
     const user = await prisma.user.update({ where: { id: userId }, data: { debt: 0 } });
     await ctx.api.sendMessage(ctx.from!.id, t.debtClearedAmount(oldUser.firstName || "?", clearedAmount));
-    try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(clearedAmount)); } catch {}
+    try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(clearedAmount, 0)); } catch {}
   } else if (data.startsWith("admin_partialdebt_")) {
     const userId = parseInt(data.replace("admin_partialdebt_", ""));
     adminState.set(ctx.from!.id, { action: "partial_debt", data: { userId } });
@@ -748,7 +749,7 @@ export async function handleAdminMessage(ctx: Context) {
       });
       clearAdminState(ctx.from.id);
       await ctx.reply(t.debtClearedAmount(oldUser.firstName || "?", deductAmount));
-      try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(deductAmount)); } catch {}
+      try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(deductAmount, user.debt)); } catch {}
       return true;
     }
     case "set_debt_limit": {
