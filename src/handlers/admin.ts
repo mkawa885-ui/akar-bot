@@ -46,7 +46,7 @@ export async function handleAdminCallback(ctx: Context) {
 
   // Clear state unless mid-flow callback
   const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_"];
-  if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel") {
+  if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel" && data !== "admin_confirmstock" && data !== "admin_confirmbcast") {
     clearAdminState(ctx.from!.id);
   }
 
