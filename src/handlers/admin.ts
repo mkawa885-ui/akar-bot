@@ -45,7 +45,7 @@ export async function handleAdminCallback(ctx: Context) {
   const data = ctx.callbackQuery!.data!;
 
   // Clear state unless mid-flow callback
-  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_"];
+  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_", "admin_stockcat_"];
   if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel" && data !== "admin_confirmstock" && data !== "admin_confirmbcast" && data !== "admin_delivery_auto" && data !== "admin_delivery_manual") {
     clearAdminState(ctx.from!.id);
   }
@@ -113,17 +113,38 @@ export async function handleAdminCallback(ctx: Context) {
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.enterProductTitle, { reply_markup: kb });
   } else if (data === "admin_add_stock") {
-    const products = await prisma.product.findMany({ include: { category: true } });
-    if (products.length === 0) {
+    const categories = await prisma.category.findMany({
+      include: { products: true },
+      orderBy: { name: "asc" },
+    });
+    const catsWithProducts = categories.filter(c => c.products.length > 0);
+    if (catsWithProducts.length === 0) {
       const kb = new InlineKeyboard().text(t.back, "back_admin");
       await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
-    for (const prod of products) {
-      kb.text(`${prod.category.name} > ${prod.title}`, `admin_stock_prod_${prod.id}`).row();
+    for (const cat of catsWithProducts) {
+      kb.text(cat.name, `admin_stockcat_${cat.id}`).row();
     }
     kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+  } else if (data.startsWith("admin_stockcat_")) {
+    const catId = parseInt(data.replace("admin_stockcat_", ""));
+    const products = await prisma.product.findMany({
+      where: { categoryId: catId },
+      orderBy: { title: "asc" },
+    });
+    if (products.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "admin_add_stock");
+      await ctx.editMessageText(t.noProducts, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const prod of products) {
+      kb.text(prod.title, `admin_stock_prod_${prod.id}`).row();
+    }
+    kb.text(t.back, "admin_add_stock");
     await ctx.editMessageText(t.selectProductForStock, { reply_markup: kb });
   } else if (data.startsWith("admin_stock_prod_")) {
     const prodId = parseInt(data.replace("admin_stock_prod_", ""));
