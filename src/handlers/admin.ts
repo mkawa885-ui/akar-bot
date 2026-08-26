@@ -22,7 +22,8 @@ export async function handleAdminPanel(ctx: Context) {
 
   const kb = new InlineKeyboard()
     // Products & Stock
-    .text(t.addCategory, "admin_add_cat").text(t.addProduct, "admin_add_prod").row()
+    .text(t.addCategory, "admin_add_cat").text("📁 Add Sub-Category", "admin_add_subcat").row()
+    .text(t.addProduct, "admin_add_prod").row()
     .text(t.addStock, "admin_add_stock").text(t.deleteStock, "admin_del_stock").row()
     .text(t.toggleProduct, "admin_toggle_prod").text(t.changePrice, "admin_change_price").row()
     .text(t.deleteCategory, "admin_del_cat").text(t.deleteProduct, "admin_del_prod").row()
@@ -45,7 +46,7 @@ export async function handleAdminCallback(ctx: Context) {
   const data = ctx.callbackQuery!.data!;
 
   // Clear state unless mid-flow callback
-  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_", "admin_stockcat_"];
+  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_", "admin_stockcat_", "admin_subcat_parent_"];
   if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel" && data !== "admin_confirmstock" && data !== "admin_confirmbcast" && data !== "admin_delivery_auto" && data !== "admin_delivery_manual") {
     clearAdminState(ctx.from!.id);
   }
@@ -94,6 +95,24 @@ export async function handleAdminCallback(ctx: Context) {
     adminState.set(ctx.from!.id, { action: "add_category" });
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.enterCategoryName, { reply_markup: kb });
+  } else if (data === "admin_add_subcat") {
+    const categories = await prisma.category.findMany({ where: { parentId: null }, orderBy: { name: "asc" } });
+    if (categories.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noCategories, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const cat of categories) {
+      kb.text(cat.name, `admin_subcat_parent_${cat.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText("Select parent category:", { reply_markup: kb });
+  } else if (data.startsWith("admin_subcat_parent_")) {
+    const parentId = parseInt(data.replace("admin_subcat_parent_", ""));
+    adminState.set(ctx.from!.id, { action: "add_subcategory", data: { parentId } });
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText("Enter sub-category name:", { reply_markup: kb });
   } else if (data === "admin_add_prod") {
     const categories = await prisma.category.findMany();
     if (categories.length === 0) {
@@ -114,29 +133,48 @@ export async function handleAdminCallback(ctx: Context) {
     await ctx.editMessageText(t.enterProductTitle, { reply_markup: kb });
   } else if (data === "admin_add_stock") {
     const categories = await prisma.category.findMany({
-      include: { products: true },
+      where: { parentId: null },
       orderBy: { name: "asc" },
     });
-    const catsWithProducts = categories.filter(c => c.products.length > 0);
-    if (catsWithProducts.length === 0) {
+    if (categories.length === 0) {
       const kb = new InlineKeyboard().text(t.back, "back_admin");
-      await ctx.editMessageText(t.noProducts, { reply_markup: kb });
+      await ctx.editMessageText(t.noCategories, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
-    for (const cat of catsWithProducts) {
+    for (const cat of categories) {
       kb.text(cat.name, `admin_stockcat_${cat.id}`).row();
     }
     kb.text(t.back, "back_admin");
     await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
   } else if (data.startsWith("admin_stockcat_")) {
     const catId = parseInt(data.replace("admin_stockcat_", ""));
+    const category = await prisma.category.findUnique({
+      where: { id: catId },
+      include: { children: { orderBy: { name: "asc" } } },
+    });
+    if (!category) return;
+
+    // If has sub-categories, show them
+    if (category.children.length > 0) {
+      const kb = new InlineKeyboard();
+      for (const sub of category.children) {
+        kb.text(sub.name, `admin_stockcat_${sub.id}`).row();
+      }
+      const backTarget = category.parentId ? `admin_stockcat_${category.parentId}` : "admin_add_stock";
+      kb.text(t.back, backTarget);
+      await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+      return;
+    }
+
+    // Otherwise show products
     const products = await prisma.product.findMany({
       where: { categoryId: catId },
       orderBy: { title: "asc" },
     });
     if (products.length === 0) {
-      const kb = new InlineKeyboard().text(t.back, "admin_add_stock");
+      const backTarget = category.parentId ? `admin_stockcat_${category.parentId}` : "admin_add_stock";
+      const kb = new InlineKeyboard().text(t.back, backTarget);
       await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
@@ -144,7 +182,8 @@ export async function handleAdminCallback(ctx: Context) {
     for (const prod of products) {
       kb.text(prod.title, `admin_stock_prod_${prod.id}`).row();
     }
-    kb.text(t.back, "admin_add_stock");
+    const backTarget = category.parentId ? `admin_stockcat_${category.parentId}` : "admin_add_stock";
+    kb.text(t.back, backTarget);
     await ctx.editMessageText(t.selectProductForStock, { reply_markup: kb });
   } else if (data.startsWith("admin_stock_prod_")) {
     const prodId = parseInt(data.replace("admin_stock_prod_", ""));
@@ -624,6 +663,12 @@ export async function handleAdminMessage(ctx: Context) {
       await prisma.category.create({ data: { name: text } });
       clearAdminState(ctx.from.id);
       await ctx.reply(t.categoryAdded);
+      return true;
+    }
+    case "add_subcategory": {
+      await prisma.category.create({ data: { name: text, parentId: state.data.parentId } });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(`✅ Sub-category "${text}" added!`);
       return true;
     }
     case "add_product_title": {
