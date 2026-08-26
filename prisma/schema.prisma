@@ -21,13 +21,10 @@ model User {
 }
 
 model Category {
-  id        Int        @id @default(autoincrement())
-  name      String
-  parentId  Int?
-  parent    Category?  @relation("SubCategories", fields: [parentId], references: [id], onDelete: Cascade)
-  children  Category[] @relation("SubCategories")
-  products  Product[]
-  createdAt DateTime   @default(now())
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
+  createdAt DateTime @default(now())
 }
 
 model Product {
