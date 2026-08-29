@@ -46,7 +46,7 @@ export async function handleAdminCallback(ctx: Context) {
   const data = ctx.callbackQuery!.data!;
 
   // Clear state unless mid-flow callback
-  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_", "admin_stockcat_", "admin_subcat_parent_"];
+  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_", "admin_stockcat_", "admin_subcat_parent_", "admin_delstockcat_", "admin_togcat_", "admin_pricecat_", "admin_delprodcat_", "admin_delcatcat_"];
   if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel" && data !== "admin_confirmstock" && data !== "admin_confirmbcast" && data !== "admin_delivery_auto" && data !== "admin_delivery_manual") {
     clearAdminState(ctx.from!.id);
   }
@@ -190,19 +190,57 @@ export async function handleAdminCallback(ctx: Context) {
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.enterStockItems, { reply_markup: kb });
   } else if (data === "admin_del_stock") {
+    const categories = await prisma.category.findMany({
+      where: { parentId: null },
+      orderBy: { name: "asc" },
+    });
+    if (categories.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noCategories, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const cat of categories) {
+      kb.text(cat.name, `admin_delstockcat_${cat.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+  } else if (data.startsWith("admin_delstockcat_")) {
+    const catId = parseInt(data.replace("admin_delstockcat_", ""));
+    const category = await prisma.category.findUnique({
+      where: { id: catId },
+      include: { children: { orderBy: { name: "asc" } } },
+    });
+    if (!category) return;
+
+    if (category.children.length > 0) {
+      const kb = new InlineKeyboard();
+      for (const sub of category.children) {
+        kb.text(sub.name, `admin_delstockcat_${sub.id}`).row();
+      }
+      const backTarget = category.parentId ? `admin_delstockcat_${category.parentId}` : "admin_del_stock";
+      kb.text(t.back, backTarget);
+      await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+      return;
+    }
+
     const products = await prisma.product.findMany({
-      include: { category: true, _count: { select: { stockItems: true } } },
+      where: { categoryId: catId },
+      include: { _count: { select: { stockItems: true } } },
+      orderBy: { title: "asc" },
     });
     if (products.length === 0) {
-      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      const backTarget = category.parentId ? `admin_delstockcat_${category.parentId}` : "admin_del_stock";
+      const kb = new InlineKeyboard().text(t.back, backTarget);
       await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
     for (const prod of products) {
-      kb.text(`${prod.category.name} > ${prod.title} (${prod._count.stockItems})`, `admin_delstock_${prod.id}`).row();
+      kb.text(`${prod.title} (${prod._count.stockItems})`, `admin_delstock_${prod.id}`).row();
     }
-    kb.text(t.back, "back_admin");
+    const backTarget = category.parentId ? `admin_delstockcat_${category.parentId}` : "admin_del_stock";
+    kb.text(t.back, backTarget);
     await ctx.editMessageText(t.selectProductForStockDelete, { reply_markup: kb });
   } else if (data.startsWith("admin_delstock_")) {
     const prodId = parseInt(data.replace("admin_delstock_", ""));
@@ -231,18 +269,57 @@ export async function handleAdminCallback(ctx: Context) {
     const delKb = new InlineKeyboard().text(t.back, "back_admin");
     await ctx.editMessageText(t.stockDeleted(deleted.count), { reply_markup: delKb });
   } else if (data === "admin_toggle_prod") {
-    const products = await prisma.product.findMany({ include: { category: true } });
-    if (products.length === 0) {
+    const categories = await prisma.category.findMany({
+      where: { parentId: null },
+      orderBy: { name: "asc" },
+    });
+    if (categories.length === 0) {
       const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noCategories, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const cat of categories) {
+      kb.text(cat.name, `admin_togcat_${cat.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+  } else if (data.startsWith("admin_togcat_")) {
+    const catId = parseInt(data.replace("admin_togcat_", ""));
+    const category = await prisma.category.findUnique({
+      where: { id: catId },
+      include: { children: { orderBy: { name: "asc" } } },
+    });
+    if (!category) return;
+
+    if (category.children.length > 0) {
+      const kb = new InlineKeyboard();
+      for (const sub of category.children) {
+        kb.text(sub.name, `admin_togcat_${sub.id}`).row();
+      }
+      const backTarget = category.parentId ? `admin_togcat_${category.parentId}` : "admin_toggle_prod";
+      kb.text(t.back, backTarget);
+      await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+      return;
+    }
+
+    const products = await prisma.product.findMany({
+      where: { categoryId: catId },
+      orderBy: { title: "asc" },
+    });
+    if (products.length === 0) {
+      const backTarget = category.parentId ? `admin_togcat_${category.parentId}` : "admin_toggle_prod";
+      const kb = new InlineKeyboard().text(t.back, backTarget);
       await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
     for (const prod of products) {
       const status = prod.enabled ? "🟢" : "🔴";
-      kb.text(`${status} ${prod.category.name} > ${prod.title}`, `admin_toggleprod_${prod.id}`).row();
+      kb.text(`${status} ${prod.title}`, `admin_toggleprod_${prod.id}`).row();
     }
-    kb.text(t.back, "back_admin");
+    const backTarget = category.parentId ? `admin_togcat_${category.parentId}` : "admin_toggle_prod";
+    kb.text(t.back, backTarget);
     await ctx.editMessageText(t.selectProductToToggle, { reply_markup: kb });
   } else if (data.startsWith("admin_toggleprod_")) {
     const prodId = parseInt(data.replace("admin_toggleprod_", ""));
@@ -258,18 +335,58 @@ export async function handleAdminCallback(ctx: Context) {
       { reply_markup: togKb }
     );
   } else if (data === "admin_change_price") {
-    const products = await prisma.product.findMany({ include: { category: true } });
-    if (products.length === 0) {
+    const categories = await prisma.category.findMany({
+      where: { parentId: null },
+      orderBy: { name: "asc" },
+    });
+    if (categories.length === 0) {
       const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noCategories, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const cat of categories) {
+      kb.text(cat.name, `admin_pricecat_${cat.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+  } else if (data.startsWith("admin_pricecat_")) {
+    const catId = parseInt(data.replace("admin_pricecat_", ""));
+    const category = await prisma.category.findUnique({
+      where: { id: catId },
+      include: { children: { orderBy: { name: "asc" } } },
+    });
+    if (!category) return;
+
+    if (category.children.length > 0) {
+      const kb = new InlineKeyboard();
+      for (const sub of category.children) {
+        kb.text(sub.name, `admin_pricecat_${sub.id}`).row();
+      }
+      const backTarget = category.parentId ? `admin_pricecat_${category.parentId}` : "admin_change_price";
+      kb.text(t.back, backTarget);
+      await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+      return;
+    }
+
+    const products = await prisma.product.findMany({
+      where: { categoryId: catId },
+      include: { category: true },
+      orderBy: { title: "asc" },
+    });
+    if (products.length === 0) {
+      const backTarget = category.parentId ? `admin_pricecat_${category.parentId}` : "admin_change_price";
+      const kb = new InlineKeyboard().text(t.back, backTarget);
       await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
     for (const prod of products) {
       const priceInfo = `${prod.price.toLocaleString()}${prod.vipPrice != null ? ` / VIP: ${prod.vipPrice.toLocaleString()}` : ""}`;
-      kb.text(`${prod.category.name} > ${prod.title} (${priceInfo})`, `admin_priceprod_${prod.id}`).row();
+      kb.text(`${prod.title} (${priceInfo})`, `admin_priceprod_${prod.id}`).row();
     }
-    kb.text(t.back, "back_admin");
+    const backTarget = category.parentId ? `admin_pricecat_${category.parentId}` : "admin_change_price";
+    kb.text(t.back, backTarget);
     await ctx.editMessageText(t.selectProductToChangePrice, { reply_markup: kb });
   } else if (data.startsWith("admin_priceprod_")) {
     const prodId = parseInt(data.replace("admin_priceprod_", ""));
@@ -294,7 +411,10 @@ export async function handleAdminCallback(ctx: Context) {
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.enterNewVipPrice, { reply_markup: kb });
   } else if (data === "admin_del_cat") {
-    const categories = await prisma.category.findMany();
+    const categories = await prisma.category.findMany({
+      where: { parentId: null },
+      orderBy: { name: "asc" },
+    });
     if (categories.length === 0) {
       const kb = new InlineKeyboard().text(t.back, "back_admin");
       await ctx.editMessageText(t.noCategories, { reply_markup: kb });
@@ -302,12 +422,30 @@ export async function handleAdminCallback(ctx: Context) {
     }
     const kb = new InlineKeyboard();
     for (const cat of categories) {
-      kb.text(`🗑️ ${cat.name}`, `admin_delcat_${cat.id}`).row();
+      kb.text(`🗑️ ${cat.name}`, `admin_delcatcat_${cat.id}`).row();
     }
     kb.text(t.back, "back_admin");
     await ctx.editMessageText(t.selectCategoryToDelete, { reply_markup: kb });
-  } else if (data.startsWith("admin_delcat_")) {
-    const catId = parseInt(data.replace("admin_delcat_", ""));
+  } else if (data.startsWith("admin_delcatcat_")) {
+    const catId = parseInt(data.replace("admin_delcatcat_", ""));
+    const category = await prisma.category.findUnique({
+      where: { id: catId },
+      include: { children: { orderBy: { name: "asc" } } },
+    });
+    if (!category) return;
+
+    if (category.children.length > 0) {
+      const kb = new InlineKeyboard();
+      for (const sub of category.children) {
+        kb.text(`🗑️ ${sub.name}`, `admin_delcatcat_${sub.id}`).row();
+      }
+      const backTarget = category.parentId ? `admin_delcatcat_${category.parentId}` : "admin_del_cat";
+      kb.text(t.back, backTarget);
+      await ctx.editMessageText(t.selectCategoryToDelete, { reply_markup: kb });
+      return;
+    }
+
+    // Leaf category — delete it directly
     const products = await prisma.product.findMany({
       where: { categoryId: catId },
       include: { stockItems: { where: { sold: false } } },
@@ -323,20 +461,58 @@ export async function handleAdminCallback(ctx: Context) {
       }
     }
     await prisma.category.delete({ where: { id: catId } });
-    const kb = new InlineKeyboard().text(t.back, "back_admin");
-    await ctx.editMessageText(t.categoryDeleted, { reply_markup: kb });
+    await ctx.api.sendMessage(ctx.from!.id, t.categoryDeleted);
   } else if (data === "admin_del_prod") {
-    const products = await prisma.product.findMany({ include: { category: true } });
-    if (products.length === 0) {
+    const categories = await prisma.category.findMany({
+      where: { parentId: null },
+      orderBy: { name: "asc" },
+    });
+    if (categories.length === 0) {
       const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText(t.noCategories, { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const cat of categories) {
+      kb.text(`🗑️ ${cat.name}`, `admin_delprodcat_${cat.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+  } else if (data.startsWith("admin_delprodcat_")) {
+    const catId = parseInt(data.replace("admin_delprodcat_", ""));
+    const category = await prisma.category.findUnique({
+      where: { id: catId },
+      include: { children: { orderBy: { name: "asc" } } },
+    });
+    if (!category) return;
+
+    if (category.children.length > 0) {
+      const kb = new InlineKeyboard();
+      for (const sub of category.children) {
+        kb.text(`🗑️ ${sub.name}`, `admin_delprodcat_${sub.id}`).row();
+      }
+      const backTarget = category.parentId ? `admin_delprodcat_${category.parentId}` : "admin_del_prod";
+      kb.text(t.back, backTarget);
+      await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+      return;
+    }
+
+    const products = await prisma.product.findMany({
+      where: { categoryId: catId },
+      orderBy: { title: "asc" },
+    });
+    if (products.length === 0) {
+      const backTarget = category.parentId ? `admin_delprodcat_${category.parentId}` : "admin_del_prod";
+      const kb = new InlineKeyboard().text(t.back, backTarget);
       await ctx.editMessageText(t.noProducts, { reply_markup: kb });
       return;
     }
     const kb = new InlineKeyboard();
     for (const prod of products) {
-      kb.text(`🗑️ ${prod.category.name} > ${prod.title}`, `admin_delprod_${prod.id}`).row();
+      kb.text(`🗑️ ${prod.title}`, `admin_delprod_${prod.id}`).row();
     }
-    kb.text(t.back, "back_admin");
+    const backTarget = category.parentId ? `admin_delprodcat_${category.parentId}` : "admin_del_prod";
+    kb.text(t.back, backTarget);
     await ctx.editMessageText(t.selectProductToDelete, { reply_markup: kb });
   } else if (data.startsWith("admin_delprod_")) {
     const prodId = parseInt(data.replace("admin_delprod_", ""));
