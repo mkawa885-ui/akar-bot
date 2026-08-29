@@ -26,7 +26,7 @@ export const t = {
 
   // Purchase
   purchaseSuccess: (content: string) =>
-    `✅ کڕینەکەت سەرکەوتوو بوو!\n\nئەمە بەرهەمەکەتە:\n\n<code>${content}</code>\n\nسوپاس بۆ کڕینەکەت!`,
+    `کڕینەکەت سەرکەوتوو بوو!\n\nئەمە بەرهەمەکەتە:\n\n<code>${content}</code>\n\nسوپاس بۆ کڕینەکەت!`,
   purchaseManualSuccess: "✅ داواکاریەکەت تۆمارکرا!\n\n⏳ بەرهەمەکەت ئامادە دەکرێت و بۆت دەنێردرێت.\nتکایە چاوەڕوان بە.",
   manualOrderNotify: (orderId: number, name: string, username: string | undefined, productTitle: string, category: string, price: number) =>
     `🔔 Manual Order!\n\n📋 Order #${orderId}\n👤 ${name}${username ? ` (@${username})` : ""}\n📦 ${category} > ${productTitle}\n💰 Price: ${price.toLocaleString()} IQD\n\nPlease prepare and deliver the product.`,
@@ -34,7 +34,7 @@ export const t = {
   enterDeliveryContent: "Enter the product content to send to the buyer:",
   orderDelivered: "✅ Product delivered to buyer!",
   orderDeliveredNotify: (content: string) =>
-    `✅ بەرهەمەکەت ئامادەیە!\n\n🔑 ئەمە بەرهەمەکەتە:\n\n<code>${content}</code>\n\nسوپاس! 🙏`,
+    `بەرهەمەکەت ئامادەیە!\n\nئەمە بەرهەمەکەتە:\n\n<code>${content}</code>\n\nسوپاس بۆ کڕینەکەت!`,
   pendingOrders: "📬 Pending Orders",
   noPendingOrders: "No pending orders.",
   toggleProduct: "🔄 Toggle Product",
