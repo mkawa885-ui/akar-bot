@@ -668,13 +668,15 @@ export async function handleAdminMessage(ctx: Context) {
     case "add_category": {
       await prisma.category.create({ data: { name: text } });
       clearAdminState(ctx.from.id);
-      await ctx.reply(t.categoryAdded);
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.reply(t.categoryAdded, { reply_markup: kb });
       return true;
     }
     case "add_subcategory": {
       await prisma.category.create({ data: { name: text, parentId: state.data.parentId } });
       clearAdminState(ctx.from.id);
-      await ctx.reply(`✅ Sub-category "${text}" added!`);
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.reply(`✅ Sub-category "${text}" added!`, { reply_markup: kb });
       return true;
     }
     case "add_product_title": {
