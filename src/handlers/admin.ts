@@ -309,14 +309,18 @@ export async function handleAdminCallback(ctx: Context) {
     await ctx.editMessageText(t.selectCategoryToDelete, { reply_markup: kb });
   } else if (data.startsWith("admin_delcat_")) {
     const catId = parseInt(data.replace("admin_delcat_", ""));
-    const items = await prisma.stockItem.findMany({
-      where: { product: { categoryId: catId }, sold: false },
+    const products = await prisma.product.findMany({
+      where: { categoryId: catId },
+      include: { stockItems: { where: { sold: false } } },
     });
-    if (items.length > 0) {
-      const content = items.map(i => i.content).join("\n");
-      const chunks = content.match(/[\s\S]{1,4000}/g) || [];
-      for (const chunk of chunks) {
-        await ctx.api.sendMessage(ctx.from!.id, `<code>${chunk}</code>`, { parse_mode: "HTML" });
+    for (const prod of products) {
+      if (prod.stockItems.length > 0) {
+        const content = prod.stockItems.map(i => i.content).join("\n");
+        const msg = `📦 ${prod.title}\n\n<code>${content}</code>`;
+        const chunks = msg.match(/[\s\S]{1,4000}/g) || [];
+        for (const chunk of chunks) {
+          await ctx.api.sendMessage(ctx.from!.id, chunk, { parse_mode: "HTML" });
+        }
       }
     }
     await prisma.category.delete({ where: { id: catId } });
@@ -337,12 +341,14 @@ export async function handleAdminCallback(ctx: Context) {
     await ctx.editMessageText(t.selectProductToDelete, { reply_markup: kb });
   } else if (data.startsWith("admin_delprod_")) {
     const prodId = parseInt(data.replace("admin_delprod_", ""));
+    const prod = await prisma.product.findUnique({ where: { id: prodId } });
     const items = await prisma.stockItem.findMany({ where: { productId: prodId, sold: false } });
     if (items.length > 0) {
       const content = items.map(i => i.content).join("\n");
-      const chunks = content.match(/[\s\S]{1,4000}/g) || [];
+      const msg = `📦 ${prod?.title || "?"}\n\n<code>${content}</code>`;
+      const chunks = msg.match(/[\s\S]{1,4000}/g) || [];
       for (const chunk of chunks) {
-        await ctx.api.sendMessage(ctx.from!.id, `<code>${chunk}</code>`, { parse_mode: "HTML" });
+        await ctx.api.sendMessage(ctx.from!.id, chunk, { parse_mode: "HTML" });
       }
     }
     await prisma.product.delete({ where: { id: prodId } });
