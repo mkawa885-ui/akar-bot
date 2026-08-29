@@ -527,8 +527,7 @@ export async function handleAdminCallback(ctx: Context) {
       }
     }
     await prisma.product.delete({ where: { id: prodId } });
-    const kb = new InlineKeyboard().text(t.back, "back_admin");
-    await ctx.editMessageText(t.productDeleted, { reply_markup: kb });
+    await ctx.api.sendMessage(ctx.from!.id, t.productDeleted);
   } else if (data === "admin_delivery_auto" || data === "admin_delivery_manual") {
     const st = adminState.get(ctx.from!.id);
     if (!st || st.action !== "add_product_delivery") return;
