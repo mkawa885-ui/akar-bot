@@ -257,17 +257,20 @@ export async function handleAdminCallback(ctx: Context) {
     const type = parts[0];
     const prodId = parseInt(parts[1]);
     const where = type === "all" ? { productId: prodId } : { productId: prodId, sold: false };
+    const prod = await prisma.product.findUnique({ where: { id: prodId } });
     const unsoldItems = await prisma.stockItem.findMany({ where: { productId: prodId, sold: false } });
+    const deleted = await prisma.stockItem.deleteMany({ where });
+    const title = prod?.title || "?";
     if (unsoldItems.length > 0) {
       const content = unsoldItems.map(i => i.content).join("\n");
-      const chunks = content.match(/[\s\S]{1,4000}/g) || [];
+      const msg = `✅ ${deleted.count} stock deleted from "${title}"\n\n<code>${content}</code>`;
+      const chunks = msg.match(/[\s\S]{1,4000}/g) || [];
       for (const chunk of chunks) {
-        await ctx.api.sendMessage(ctx.from!.id, `<code>${chunk}</code>`, { parse_mode: "HTML" });
+        await ctx.api.sendMessage(ctx.from!.id, chunk, { parse_mode: "HTML" });
       }
+    } else {
+      await ctx.api.sendMessage(ctx.from!.id, `✅ ${deleted.count} stock deleted from "${title}"`);
     }
-    const deleted = await prisma.stockItem.deleteMany({ where });
-    const delKb = new InlineKeyboard().text(t.back, "back_admin");
-    await ctx.editMessageText(t.stockDeleted(deleted.count), { reply_markup: delKb });
   } else if (data === "admin_toggle_prod") {
     const categories = await prisma.category.findMany({
       where: { parentId: null },
