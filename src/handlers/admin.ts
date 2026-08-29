@@ -450,18 +450,20 @@ export async function handleAdminCallback(ctx: Context) {
       where: { categoryId: catId },
       include: { stockItems: { where: { sold: false } } },
     });
-    for (const prod of products) {
-      if (prod.stockItems.length > 0) {
-        const content = prod.stockItems.map(i => i.content).join("\n");
-        const msg = `📦 ${prod.title}\n\n<code>${content}</code>`;
-        const chunks = msg.match(/[\s\S]{1,4000}/g) || [];
-        for (const chunk of chunks) {
-          await ctx.api.sendMessage(ctx.from!.id, chunk, { parse_mode: "HTML" });
+    await prisma.category.delete({ where: { id: catId } });
+    if (products.some(p => p.stockItems.length > 0)) {
+      for (const prod of products) {
+        if (prod.stockItems.length > 0) {
+          const content = prod.stockItems.map(i => i.content).join("\n");
+          const msg = `📦 ${prod.title} (${prod.stockItems.length}):\n\n<code>${content}</code>`;
+          const chunks = msg.match(/[\s\S]{1,4000}/g) || [];
+          for (const chunk of chunks) {
+            await ctx.api.sendMessage(ctx.from!.id, chunk, { parse_mode: "HTML" });
+          }
         }
       }
     }
-    await prisma.category.delete({ where: { id: catId } });
-    await ctx.api.sendMessage(ctx.from!.id, t.categoryDeleted);
+    await ctx.api.sendMessage(ctx.from!.id, `✅ "${category.name}" deleted!`);
   } else if (data === "admin_del_prod") {
     const categories = await prisma.category.findMany({
       where: { parentId: null },
@@ -518,16 +520,18 @@ export async function handleAdminCallback(ctx: Context) {
     const prodId = parseInt(data.replace("admin_delprod_", ""));
     const prod = await prisma.product.findUnique({ where: { id: prodId } });
     const items = await prisma.stockItem.findMany({ where: { productId: prodId, sold: false } });
+    await prisma.product.delete({ where: { id: prodId } });
+    const title = prod?.title || "?";
     if (items.length > 0) {
       const content = items.map(i => i.content).join("\n");
-      const msg = `📦 ${prod?.title || "?"}\n\n<code>${content}</code>`;
+      const msg = `✅ "${title}" deleted!\n\n📦 Stock returned (${items.length}):\n\n<code>${content}</code>`;
       const chunks = msg.match(/[\s\S]{1,4000}/g) || [];
       for (const chunk of chunks) {
         await ctx.api.sendMessage(ctx.from!.id, chunk, { parse_mode: "HTML" });
       }
+    } else {
+      await ctx.api.sendMessage(ctx.from!.id, `✅ "${title}" deleted!`);
     }
-    await prisma.product.delete({ where: { id: prodId } });
-    await ctx.api.sendMessage(ctx.from!.id, t.productDeleted);
   } else if (data === "admin_delivery_auto" || data === "admin_delivery_manual") {
     const st = adminState.get(ctx.from!.id);
     if (!st || st.action !== "add_product_delivery") return;
