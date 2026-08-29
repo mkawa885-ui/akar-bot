@@ -226,7 +226,7 @@ export async function handleAdminCallback(ctx: Context) {
 
     const products = await prisma.product.findMany({
       where: { categoryId: catId },
-      include: { _count: { select: { stockItems: true } } },
+      include: { stockItems: { where: { sold: false } } },
       orderBy: { title: "asc" },
     });
     if (products.length === 0) {
@@ -237,7 +237,7 @@ export async function handleAdminCallback(ctx: Context) {
     }
     const kb = new InlineKeyboard();
     for (const prod of products) {
-      kb.text(`${prod.title} (${prod._count.stockItems})`, `admin_delstock_${prod.id}`).row();
+      kb.text(`${prod.title} (${prod.stockItems.length})`, `admin_delstock_${prod.id}`).row();
     }
     const backTarget = category.parentId ? `admin_delstockcat_${category.parentId}` : "admin_del_stock";
     kb.text(t.back, backTarget);
