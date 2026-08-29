@@ -66,8 +66,7 @@ export async function handleAdminCallback(ctx: Context) {
         })),
       });
       clearAdminState(ctx.from!.id);
-      const kb = new InlineKeyboard().text(t.back, "back_admin");
-      await ctx.editMessageText(t.stockAddedTo(state.data.items.length, product?.title || "?"), { reply_markup: kb });
+      await ctx.api.sendMessage(ctx.from!.id, t.stockAddedTo(state.data.items.length, product?.title || "?"));
     }
     return;
   } else if (data === "admin_confirmbcast") {
@@ -369,8 +368,7 @@ export async function handleAdminCallback(ctx: Context) {
       },
     });
     clearAdminState(ctx.from!.id);
-    const kb = new InlineKeyboard().text(t.back, "back_admin");
-    await ctx.editMessageText(t.productAdded, { reply_markup: kb });
+    await ctx.api.sendMessage(ctx.from!.id, t.productAdded);
   } else if (data === "admin_pending") {
     const orders = await prisma.order.findMany({
       where: { delivered: false, product: { autoDeliver: false } },
@@ -668,15 +666,13 @@ export async function handleAdminMessage(ctx: Context) {
     case "add_category": {
       await prisma.category.create({ data: { name: text } });
       clearAdminState(ctx.from.id);
-      const kb = new InlineKeyboard().text(t.back, "back_admin");
-      await ctx.reply(t.categoryAdded, { reply_markup: kb });
+      await ctx.reply(t.categoryAdded);
       return true;
     }
     case "add_subcategory": {
       await prisma.category.create({ data: { name: text, parentId: state.data.parentId } });
       clearAdminState(ctx.from.id);
-      const kb = new InlineKeyboard().text(t.back, "back_admin");
-      await ctx.reply(`✅ Sub-category "${text}" added!`, { reply_markup: kb });
+      await ctx.reply(`✅ Sub-category "${text}" added!`);
       return true;
     }
     case "add_product_title": {
