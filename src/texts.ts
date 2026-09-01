@@ -16,8 +16,8 @@ export const t = {
   noCategories: "هیچ بەشێک نییە تا ئێستا.",
   selectProduct: "بەرهەمێک هەڵبژێرە:",
   noProducts: "هیچ بەرهەمێک نییە لەم بەشەدا.",
-  productDetails: (title: string, desc: string, price: number, vipPrice: number | null, stock: number, category: string, role: string) => {
-    const displayPrice = (role === "vip" && vipPrice != null) ? vipPrice : price;
+  productDetails: (title: string, desc: string, price: number, vipPrice: number | null, dwkandarPrice: number | null, stock: number, category: string, role: string) => {
+    const displayPrice = (role === "dwkandar" && dwkandarPrice != null) ? dwkandarPrice : (role === "vip" && vipPrice != null) ? vipPrice : price;
     return `📦 بەرهەم: ${title}\n📂 بەش: ${category}\n\n📝 وەسف:\n${desc}\n\n💰 نرخ: ${displayPrice.toLocaleString()} دینار\n🟢 ئامادە: ${stock} دانە`;
   },
   outOfStock: "❌ ئەم بەرهەمە بەردەست نییە.",
@@ -42,10 +42,13 @@ export const t = {
   selectProductToChangePrice: "Select a product to change price:",
   changeStandardPrice: "💰 Change Standard Price",
   changeVipPrice: "👑 Change VIP Price",
+  changeDwkandarPrice: "🏪 Change Dwkandar Price",
   enterNewPrice: "Enter new standard price (number in IQD):",
   enterNewVipPrice: "Enter new VIP price (number in IQD, 0 to remove VIP price):",
+  enterNewDwkandarPrice: "Enter new Dwkandar price (number in IQD, 0 to remove Dwkandar price):",
   priceChanged: (title: string, price: number) => `✅ "${title}" standard price changed to ${price.toLocaleString()} IQD.`,
   vipPriceChanged: (title: string, price: number) => price > 0 ? `✅ "${title}" VIP price changed to ${price.toLocaleString()} IQD.` : `✅ "${title}" VIP price removed.`,
+  dwkandarPriceChanged: (title: string, price: number) => price > 0 ? `✅ "${title}" Dwkandar price changed to ${price.toLocaleString()} IQD.` : `✅ "${title}" Dwkandar price removed.`,
   selectProductToToggle: "Select a product to enable/disable:",
   productEnabled: (title: string) => `✅ "${title}" enabled — buyers can purchase it.`,
   productDisabled: (title: string) => `🚫 "${title}" disabled — buyers cannot purchase it.`,
@@ -98,6 +101,7 @@ export const t = {
   enterProductTitle: "Enter product title:",
   enterProductDescription: "Enter product description:",
   enterVipPrice: "Enter VIP price (number in IQD, 0 for no VIP price):",
+  enterDwkandarPrice: "Enter Dwkandar price (number in IQD, 0 for no Dwkandar price):",
   selectDeliveryType: "Select delivery type:",
   autoDelivery: "⚡ Auto (from stock)",
   manualDelivery: "✋ Manual (prepare on order)",
@@ -125,21 +129,31 @@ export const t = {
     `📊 Statistics:\n\n👥 Users: ${users}\n📦 Products: ${products}\n🛒 Orders: ${orders}\n🔑 Available Stock: ${stock}`,
 
   // Account
-  accountInfo: (debt: number, orderCount: number, limit: number, role: string, purchaseSummary: string) =>
-    `👤 هەژمارەکەم\n\n${role === "vip" ? "👑 VIP" : "📋 Standard"}\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 کۆی داواکارییەکان: ${orderCount}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}${purchaseSummary ? `\n\n🛒 کڕینەکان:\n${purchaseSummary}` : ""}`,
+  accountInfo: (debt: number, orderCount: number, limit: number, role: string, purchaseSummary: string) => {
+    const roleLabel = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : "📋 Standard";
+    return `👤 هەژمارەکەم\n\n${roleLabel}\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 کۆی داواکارییەکان: ${orderCount}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}${purchaseSummary ? `\n\n🛒 کڕینەکان:\n${purchaseSummary}` : ""}`;
+  },
   noDebt: "✅ هیچ قەرزێکت نییە!",
   debtLimitReached: "❌ تۆ گەیشتویت بە سنووری قەرزەکەت. تکایە قەرزەکەت بسڕەوە پێش کڕینی نوێ.",
 
   // User management
   userListTitle: "👥 Users:",
-  userDetail: (name: string, username: string | null, debt: number, orders: number, limit: number, role: string, purchaseSummary: string) =>
-    `👤 ${name}${username ? ` (@${username})` : ""}\n${role === "vip" ? "👑 VIP" : "📋 Standard"}\n\n💰 Debt: ${debt.toLocaleString()} IQD\n📦 Orders: ${orders}\n🔒 Debt Limit: ${limit > 0 ? limit.toLocaleString() + " IQD" : "Unlimited"}${purchaseSummary ? `\n\n🛒 Purchases:\n${purchaseSummary}` : ""}`,
+  userDetail: (name: string, username: string | null, debt: number, orders: number, limit: number, role: string, purchaseSummary: string) => {
+    const roleLabel = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : "📋 Standard";
+    return `👤 ${name}${username ? ` (@${username})` : ""}\n${roleLabel}\n\n💰 Debt: ${debt.toLocaleString()} IQD\n📦 Orders: ${orders}\n🔒 Debt Limit: ${limit > 0 ? limit.toLocaleString() + " IQD" : "Unlimited"}${purchaseSummary ? `\n\n🛒 Purchases:\n${purchaseSummary}` : ""}`;
+  },
   setRole: "👑 Change Role",
   roleStandard: "📋 Standard",
   roleVip: "👑 VIP",
-  roleChanged: (role: string) => `✅ User role changed to ${role === "vip" ? "👑 VIP" : "📋 Standard"}`,
+  roleDwkandar: "🏪 Dwkandar",
+  roleChanged: (role: string) => {
+    const label = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : "📋 Standard";
+    return `✅ User role changed to ${label}`;
+  },
   roleChangedNotify: (role: string) => role === "vip"
     ? "👑 ڕۆڵەکەت گۆڕدرا بۆ VIP! ئێستا نرخی VIP بۆت دەردەکەوێت."
+    : role === "dwkandar"
+    ? "🏪 ڕۆڵەکەت گۆڕدرا بۆ Dwkandar! ئێستا نرخی Dwkandar بۆت دەردەکەوێت."
     : "📋 ڕۆڵەکەت گۆڕدرا بۆ Standard.",
   clearDebt: "🧹 Clear Debt",
   addDebt: "➕ Add Debt",

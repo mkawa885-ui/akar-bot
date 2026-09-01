@@ -385,7 +385,7 @@ export async function handleAdminCallback(ctx: Context) {
     }
     const kb = new InlineKeyboard();
     for (const prod of products) {
-      const priceInfo = `${prod.price.toLocaleString()}${prod.vipPrice != null ? ` / VIP: ${prod.vipPrice.toLocaleString()}` : ""}`;
+      const priceInfo = `${prod.price.toLocaleString()}${prod.vipPrice != null ? ` / VIP: ${prod.vipPrice.toLocaleString()}` : ""}${prod.dwkandarPrice != null ? ` / DWK: ${prod.dwkandarPrice.toLocaleString()}` : ""}`;
       kb.text(`${prod.title} (${priceInfo})`, `admin_priceprod_${prod.id}`).row();
     }
     const backTarget = category.parentId ? `admin_pricecat_${category.parentId}` : "admin_change_price";
@@ -398,9 +398,10 @@ export async function handleAdminCallback(ctx: Context) {
     const kb = new InlineKeyboard()
       .text(t.changeStandardPrice, `admin_setprice_${prodId}`).row()
       .text(t.changeVipPrice, `admin_setvipprice_${prodId}`).row()
+      .text(t.changeDwkandarPrice, `admin_setdwkprice_${prodId}`).row()
       .text(t.back, "admin_change_price");
     await ctx.editMessageText(
-      `${prod.title}\n\n💰 Standard: ${prod.price.toLocaleString()} IQD\n👑 VIP: ${prod.vipPrice != null ? prod.vipPrice.toLocaleString() + " IQD" : "N/A"}`,
+      `${prod.title}\n\n💰 Standard: ${prod.price.toLocaleString()} IQD\n👑 VIP: ${prod.vipPrice != null ? prod.vipPrice.toLocaleString() + " IQD" : "N/A"}\n🏪 Dwkandar: ${prod.dwkandarPrice != null ? prod.dwkandarPrice.toLocaleString() + " IQD" : "N/A"}`,
       { reply_markup: kb }
     );
   } else if (data.startsWith("admin_setprice_")) {
@@ -413,6 +414,11 @@ export async function handleAdminCallback(ctx: Context) {
     adminState.set(ctx.from!.id, { action: "change_vip_price", data: { productId: prodId } });
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.enterNewVipPrice, { reply_markup: kb });
+  } else if (data.startsWith("admin_setdwkprice_")) {
+    const prodId = parseInt(data.replace("admin_setdwkprice_", ""));
+    adminState.set(ctx.from!.id, { action: "change_dwkandar_price", data: { productId: prodId } });
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterNewDwkandarPrice, { reply_markup: kb });
   } else if (data === "admin_del_cat") {
     const categories = await prisma.category.findMany({
       where: { parentId: null },
@@ -545,6 +551,7 @@ export async function handleAdminCallback(ctx: Context) {
         description: st.data.description,
         price: st.data.price,
         vipPrice: st.data.vipPrice,
+        dwkandarPrice: st.data.dwkandarPrice,
         categoryId: st.data.categoryId,
         autoDeliver,
       },
@@ -627,11 +634,13 @@ export async function handleAdminCallback(ctx: Context) {
     const userId = parseInt(data.replace("admin_role_", ""));
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return;
+    const roleLabel = user.role === "vip" ? "👑 VIP" : user.role === "dwkandar" ? "🏪 Dwkandar" : "📋 Standard";
     const kb = new InlineKeyboard()
       .text(t.roleStandard, `admin_setrole_${userId}_standard`)
-      .text(t.roleVip, `admin_setrole_${userId}_vip`).row()
+      .text(t.roleVip, `admin_setrole_${userId}_vip`)
+      .text(t.roleDwkandar, `admin_setrole_${userId}_dwkandar`).row()
       .text(t.back, `admin_user_${userId}`);
-    await ctx.editMessageText(`Current role: ${user.role === "vip" ? "👑 VIP" : "📋 Standard"}\n\nSelect a role:`, { reply_markup: kb });
+    await ctx.editMessageText(`Current role: ${roleLabel}\n\nSelect a role:`, { reply_markup: kb });
   } else if (data.startsWith("admin_setrole_")) {
     const parts = data.replace("admin_setrole_", "").split("_");
     const userId = parseInt(parts[0]);
@@ -697,7 +706,7 @@ export async function handleAdminCallback(ctx: Context) {
       let total = 0;
       selectedOrders = [];
       for (const order of orders) {
-        const price = (user.role === "vip" && order.product.vipPrice != null) ? order.product.vipPrice : order.product.price;
+        const price = (user.role === "dwkandar" && order.product.dwkandarPrice != null) ? order.product.dwkandarPrice : (user.role === "vip" && order.product.vipPrice != null) ? order.product.vipPrice : order.product.price;
         total += price;
         selectedOrders.push(order);
         if (total >= user.debt) break;
@@ -719,7 +728,7 @@ export async function handleAdminCallback(ctx: Context) {
       let totalSpent = 0;
       for (let i = 0; i < selectedOrders.length; i++) {
         const o = selectedOrders[i];
-        const price = (user.role === "vip" && o.product.vipPrice != null) ? o.product.vipPrice : o.product.price;
+        const price = (user.role === "dwkandar" && o.product.dwkandarPrice != null) ? o.product.dwkandarPrice : (user.role === "vip" && o.product.vipPrice != null) ? o.product.vipPrice : o.product.price;
         totalSpent += price;
         txt += `#${i + 1} | ${o.createdAt.toLocaleString("en-US")}\n`;
         txt += `   Product: ${o.product.category.name} > ${o.product.title}\n`;
@@ -819,9 +828,10 @@ export async function handleAdminCallback(ctx: Context) {
       .text("📢 All Users", "admin_bcast_all").row()
       .text("📋 Standard Only", "admin_bcast_standard").row()
       .text("👑 VIP Only", "admin_bcast_vip").row()
+      .text("🏪 Dwkandar Only", "admin_bcast_dwkandar").row()
       .text(t.back, "back_admin");
     await ctx.editMessageText("Select broadcast audience:", { reply_markup: kb });
-  } else if (data === "admin_bcast_all" || data === "admin_bcast_standard" || data === "admin_bcast_vip") {
+  } else if (data === "admin_bcast_all" || data === "admin_bcast_standard" || data === "admin_bcast_vip" || data === "admin_bcast_dwkandar") {
     const audience = data.replace("admin_bcast_", "");
     adminState.set(ctx.from!.id, { action: "broadcast", data: { audience } });
     const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : "Standard users";
@@ -893,8 +903,21 @@ export async function handleAdminMessage(ctx: Context) {
         return true;
       }
       adminState.set(ctx.from.id, {
-        action: "add_product_delivery",
+        action: "add_product_dwkandar_price",
         data: { ...state.data, vipPrice: vipPrice > 0 ? vipPrice : null },
+      });
+      await ctx.reply(t.enterDwkandarPrice);
+      return true;
+    }
+    case "add_product_dwkandar_price": {
+      const dwkandarPrice = parseFloat(text);
+      if (isNaN(dwkandarPrice) || dwkandarPrice < 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      adminState.set(ctx.from.id, {
+        action: "add_product_delivery",
+        data: { ...state.data, dwkandarPrice: dwkandarPrice > 0 ? dwkandarPrice : null },
       });
       const kb = new InlineKeyboard()
         .text(t.autoDelivery, "admin_delivery_auto")
@@ -1046,6 +1069,20 @@ export async function handleAdminMessage(ctx: Context) {
       await ctx.reply(t.vipPriceChanged(prod.title, vipPrice));
       return true;
     }
+    case "change_dwkandar_price": {
+      const dwkPrice = parseFloat(text);
+      if (isNaN(dwkPrice) || dwkPrice < 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      const prod = await prisma.product.update({
+        where: { id: state.data.productId },
+        data: { dwkandarPrice: dwkPrice > 0 ? dwkPrice : null },
+      });
+      clearAdminState(ctx.from.id);
+      await ctx.reply(t.dwkandarPriceChanged(prod.title, dwkPrice));
+      return true;
+    }
   }
 
   return false;
@@ -1095,6 +1132,7 @@ export async function handleAdminDocument(ctx: Context) {
             description: prod.description,
             price: prod.price,
             vipPrice: prod.vipPrice ?? null,
+            dwkandarPrice: prod.dwkandarPrice ?? null,
             autoDeliver: prod.autoDeliver ?? true,
             enabled: prod.enabled ?? true,
             lowStockAlert: prod.lowStockAlert ?? 5,

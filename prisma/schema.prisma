@@ -36,6 +36,7 @@ model Product {
   description String
   price       Float
   vipPrice    Float?
+  dwkandarPrice Float?
   autoDeliver Boolean  @default(true)
   enabled     Boolean  @default(true)
   lowStockAlert Int    @default(5)
