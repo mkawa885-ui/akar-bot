@@ -76,6 +76,7 @@ export async function handleAdminCallback(ctx: Context) {
       const where: any = {};
       if (audience === "standard") where.role = "standard";
       else if (audience === "vip") where.role = "vip";
+      else if (audience === "dwkandar") where.role = "dwkandar";
       const users = await prisma.user.findMany({ where });
       let sent = 0;
       for (const user of users) {
@@ -85,7 +86,7 @@ export async function handleAdminCallback(ctx: Context) {
         } catch {}
       }
       clearAdminState(ctx.from!.id);
-      const label = audience === "all" ? "" : audience === "vip" ? " VIP" : " Standard";
+      const label = audience === "all" ? "" : audience === "vip" ? " VIP" : audience === "dwkandar" ? " Dwkandar" : " Standard";
       const kb = new InlineKeyboard().text(t.back, "back_admin");
       await ctx.editMessageText(`✅ Message sent to ${sent}${label} users.`, { reply_markup: kb });
     }
@@ -834,7 +835,7 @@ export async function handleAdminCallback(ctx: Context) {
   } else if (data === "admin_bcast_all" || data === "admin_bcast_standard" || data === "admin_bcast_vip" || data === "admin_bcast_dwkandar") {
     const audience = data.replace("admin_bcast_", "");
     adminState.set(ctx.from!.id, { action: "broadcast", data: { audience } });
-    const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : "Standard users";
+    const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : audience === "dwkandar" ? "Dwkandar users" : "Standard users";
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(`Enter the message to broadcast to ${label}:`, { reply_markup: kb });
   }
@@ -941,7 +942,7 @@ export async function handleAdminMessage(ctx: Context) {
     }
     case "broadcast": {
       const audience = state.data?.audience || "all";
-      const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : "Standard users";
+      const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : audience === "dwkandar" ? "Dwkandar users" : "Standard users";
       adminState.set(ctx.from.id, { action: "confirm_broadcast", data: { audience, message: text } });
       const kb = new InlineKeyboard()
         .text("✅ Yes, Send", "admin_confirmbcast")
