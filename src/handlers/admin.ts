@@ -46,7 +46,7 @@ export async function handleAdminCallback(ctx: Context) {
   const data = ctx.callbackQuery!.data!;
 
   // Clear state unless mid-flow callback
-  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_", "admin_stockcat_", "admin_subcat_parent_", "admin_delstockcat_", "admin_togcat_", "admin_pricecat_", "admin_delprodcat_", "admin_delcatcat_"];
+  const keepPrefixes = ["admin_delivery_", "admin_prod_cat_", "admin_stock_prod_", "admin_stockcat_", "admin_subcat_parent_", "admin_delstockcat_", "admin_togcat_", "admin_pricecat_", "admin_delprodcat_", "admin_delcatcat_", "admin_users_"];
   if (!keepPrefixes.some(p => data.startsWith(p)) && data !== "admin_cancel" && data !== "admin_confirmstock" && data !== "admin_confirmbcast" && data !== "admin_delivery_auto" && data !== "admin_delivery_manual") {
     clearAdminState(ctx.from!.id);
   }
@@ -589,12 +589,24 @@ export async function handleAdminCallback(ctx: Context) {
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.enterSearchQuery, { reply_markup: kb });
   } else if (data === "admin_users") {
+    const kb = new InlineKeyboard()
+      .text("📋 Standard", "admin_users_standard").row()
+      .text("👑 VIP", "admin_users_vip").row()
+      .text("🏪 Dwkandar", "admin_users_dwkandar").row()
+      .text("👥 All Users", "admin_users_all").row()
+      .text(t.back, "back_admin");
+    await ctx.editMessageText("Select role to view users:", { reply_markup: kb });
+  } else if (data.startsWith("admin_users_")) {
+    const role = data.replace("admin_users_", "");
+    const where: any = {};
+    if (role !== "all") where.role = role;
     const users = await prisma.user.findMany({
+      where,
       include: { _count: { select: { orders: true } } },
       orderBy: { createdAt: "desc" },
     });
     if (users.length === 0) {
-      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      const kb = new InlineKeyboard().text(t.back, "admin_users");
       await ctx.editMessageText(t.noUsers, { reply_markup: kb });
       return;
     }
@@ -603,8 +615,9 @@ export async function handleAdminCallback(ctx: Context) {
       const label = `${user.firstName || "?"} - ${user.debt.toLocaleString()} IQD (${user._count.orders})`;
       kb.text(label, `admin_user_${user.id}`).row();
     }
-    kb.text(t.back, "back_admin");
-    await ctx.editMessageText(t.userListTitle, { reply_markup: kb });
+    kb.text(t.back, "admin_users");
+    const roleLabel = role === "all" ? "All" : role === "vip" ? "VIP" : role === "dwkandar" ? "Dwkandar" : "Standard";
+    await ctx.editMessageText(`👥 ${roleLabel} Users:`, { reply_markup: kb });
   } else if (data.startsWith("admin_user_")) {
     const userId = parseInt(data.replace("admin_user_", ""));
     const user = await prisma.user.findUnique({
