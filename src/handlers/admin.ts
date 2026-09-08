@@ -598,7 +598,7 @@ export async function handleAdminCallback(ctx: Context) {
     await ctx.editMessageText("Select role to view users:", { reply_markup: kb });
   } else if (data.startsWith("admin_users_")) {
     const role = data.replace("admin_users_", "");
-    const where: any = {};
+    const where: any = { approved: true };
     if (role !== "all") where.role = role;
     const users = await prisma.user.findMany({
       where,
