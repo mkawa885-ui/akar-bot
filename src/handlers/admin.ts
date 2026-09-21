@@ -30,6 +30,7 @@ export async function handleAdminPanel(ctx: Context) {
     // Orders & Inventory
     .text(t.pendingOrders, "admin_pending").text(t.searchStock, "admin_search").row()
     .text(t.inventory, "admin_inventory").text(t.stats, "admin_stats").row()
+    .text("📊 Sales Report", "admin_sales_report").row()
     // Users
     .text(t.manageUsers, "admin_users").text(t.broadcast, "admin_broadcast").row()
     // System
@@ -813,6 +814,70 @@ export async function handleAdminCallback(ctx: Context) {
     ]);
     const statsKb = new InlineKeyboard().text(t.back, "back_admin");
     await ctx.editMessageText(t.statsMessage(users, products, orders, stock), { reply_markup: statsKb });
+  } else if (data === "admin_sales_report") {
+    const kb = new InlineKeyboard()
+      .text("📊 Daily (24h)", "admin_report_daily").row()
+      .text("📊 Monthly (30 Days)", "admin_report_monthly").row()
+      .text(t.back, "back_admin");
+    await ctx.editMessageText("Select report period:", { reply_markup: kb });
+  } else if (data === "admin_report_daily" || data === "admin_report_monthly") {
+    const isDaily = data === "admin_report_daily";
+    const periodMs = isDaily ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+    const label = isDaily ? "Daily Sales Report" : "Monthly Sales Report (30 Days)";
+    const since = new Date(Date.now() - periodMs);
+
+    const orders = await prisma.order.findMany({
+      where: { createdAt: { gte: since } },
+      include: {
+        product: { include: { category: true } },
+        user: true,
+      },
+    });
+
+    if (orders.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "admin_sales_report");
+      await ctx.editMessageText(`📊 ${label}\n━━━━━━━━━━━━━━━\n\nNo sales in this period.`, { reply_markup: kb });
+      return;
+    }
+
+    const productCounts = new Map<string, { count: number; revenue: number }>();
+    const buyerSpending = new Map<number, { name: string; spent: number }>();
+    let totalRevenue = 0;
+
+    for (const order of orders) {
+      const price = (order.user.role === "dwkandar" && order.product.dwkandarPrice != null)
+        ? order.product.dwkandarPrice
+        : (order.user.role === "vip" && order.product.vipPrice != null)
+        ? order.product.vipPrice
+        : order.product.price;
+
+      const key = `${order.product.category.name} > ${order.product.title}`;
+      const existing = productCounts.get(key) || { count: 0, revenue: 0 };
+      productCounts.set(key, { count: existing.count + 1, revenue: existing.revenue + price });
+
+      const buyer = buyerSpending.get(order.userId) || { name: order.user.firstName || "?", spent: 0 };
+      buyerSpending.set(order.userId, { name: buyer.name, spent: buyer.spent + price });
+
+      totalRevenue += price;
+    }
+
+    let msg = `📊 ${label}\n━━━━━━━━━━━━━━━\n\n`;
+    msg += `🛒 Total Orders: ${orders.length}\n`;
+    msg += `💰 Total Revenue: ${totalRevenue.toLocaleString()} IQD\n\n`;
+    msg += "📦 Products Sold:\n─────────────────────\n";
+
+    const sorted = Array.from(productCounts.entries()).sort((a, b) => b[1].count - a[1].count);
+    for (const [name, d] of sorted) {
+      msg += `${d.count}x ${name} — ${d.revenue.toLocaleString()} IQD\n`;
+    }
+
+    let topBuyer = { name: "", spent: 0 };
+    for (const [, d] of buyerSpending) {
+      if (d.spent > topBuyer.spent) topBuyer = d;
+    }
+    msg += `\n🏆 Top Buyer: ${topBuyer.name} — ${topBuyer.spent.toLocaleString()} IQD`;
+
+    await ctx.api.sendMessage(ctx.from!.id, msg);
   } else if (data === "admin_export_db") {
     await ctx.editMessageText(t.exportDbSending);
     try {
