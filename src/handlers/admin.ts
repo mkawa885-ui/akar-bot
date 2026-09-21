@@ -170,7 +170,7 @@ export async function handleAdminCallback(ctx: Context) {
     // Otherwise show products
     const products = await prisma.product.findMany({
       where: { categoryId: catId },
-      orderBy: { title: "asc" },
+      orderBy: { price: "asc" },
     });
     if (products.length === 0) {
       const backTarget = category.parentId ? `admin_stockcat_${category.parentId}` : "admin_add_stock";
@@ -228,7 +228,7 @@ export async function handleAdminCallback(ctx: Context) {
     const products = await prisma.product.findMany({
       where: { categoryId: catId },
       include: { stockItems: { where: { sold: false } } },
-      orderBy: { title: "asc" },
+      orderBy: { price: "asc" },
     });
     if (products.length === 0) {
       const backTarget = category.parentId ? `admin_delstockcat_${category.parentId}` : "admin_del_stock";
@@ -309,7 +309,7 @@ export async function handleAdminCallback(ctx: Context) {
 
     const products = await prisma.product.findMany({
       where: { categoryId: catId },
-      orderBy: { title: "asc" },
+      orderBy: { price: "asc" },
     });
     if (products.length === 0) {
       const backTarget = category.parentId ? `admin_togcat_${category.parentId}` : "admin_toggle_prod";
@@ -376,7 +376,7 @@ export async function handleAdminCallback(ctx: Context) {
     const products = await prisma.product.findMany({
       where: { categoryId: catId },
       include: { category: true },
-      orderBy: { title: "asc" },
+      orderBy: { price: "asc" },
     });
     if (products.length === 0) {
       const backTarget = category.parentId ? `admin_pricecat_${category.parentId}` : "admin_change_price";
@@ -511,7 +511,7 @@ export async function handleAdminCallback(ctx: Context) {
 
     const products = await prisma.product.findMany({
       where: { categoryId: catId },
-      orderBy: { title: "asc" },
+      orderBy: { price: "asc" },
     });
     if (products.length === 0) {
       const backTarget = category.parentId ? `admin_delprodcat_${category.parentId}` : "admin_del_prod";
@@ -788,7 +788,7 @@ export async function handleAdminCallback(ctx: Context) {
         category: true,
         stockItems: true,
       },
-      orderBy: { title: "asc" },
+      orderBy: { price: "asc" },
     });
     if (products.length === 0) {
       const kb = new InlineKeyboard().text(t.back, "back_admin");

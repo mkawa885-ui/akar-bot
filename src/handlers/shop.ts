@@ -12,7 +12,7 @@ export async function handleStock(ctx: Context) {
       parent: true,
       products: {
         include: { stockItems: { where: { sold: false } } },
-        orderBy: { title: "asc" },
+        orderBy: { price: "asc" },
       },
     },
     orderBy: { name: "asc" },
@@ -91,7 +91,7 @@ export async function handleCategorySelect(ctx: Context) {
   const products = await prisma.product.findMany({
     where: { categoryId: catId, enabled: true },
     include: { stockItems: { where: { sold: false } } },
-    orderBy: { title: "asc" },
+    orderBy: { price: "asc" },
   });
 
   if (products.length === 0) {
