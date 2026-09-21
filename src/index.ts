@@ -116,9 +116,9 @@ async function autoBackup() {
   }
 }
 
-async function dailySalesReport() {
+async function salesReport(label: string, periodMs: number) {
   try {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const since = new Date(Date.now() - periodMs);
     const orders = await prisma.order.findMany({
       where: { createdAt: { gte: since } },
       include: {
@@ -128,7 +128,7 @@ async function dailySalesReport() {
     });
 
     if (orders.length === 0) {
-      const msg = "📊 Daily Sales Report\n━━━━━━━━━━━━━━━\n\nNo sales in the last 24 hours.";
+      const msg = `📊 ${label}\n━━━━━━━━━━━━━━━\n\nNo sales in this period.`;
       for (const adminId of config.adminIds) {
         try { await bot.api.sendMessage(adminId, msg); } catch {}
       }
@@ -156,7 +156,7 @@ async function dailySalesReport() {
       totalRevenue += price;
     }
 
-    let msg = "📊 Daily Sales Report\n━━━━━━━━━━━━━━━\n\n";
+    let msg = `📊 ${label}\n━━━━━━━━━━━━━━━\n\n`;
     msg += `🛒 Total Orders: ${orders.length}\n`;
     msg += `💰 Total Revenue: ${totalRevenue.toLocaleString()} IQD\n\n`;
 
@@ -175,10 +175,18 @@ async function dailySalesReport() {
     for (const adminId of config.adminIds) {
       try { await bot.api.sendMessage(adminId, msg); } catch {}
     }
-    console.log("Daily sales report sent to admins");
+    console.log(`${label} sent to admins`);
   } catch (err) {
-    console.error("Daily sales report failed:", err);
+    console.error(`${label} failed:`, err);
   }
+}
+
+function dailySalesReport() {
+  return salesReport("Daily Sales Report", 24 * 60 * 60 * 1000);
+}
+
+function monthlySalesReport() {
+  return salesReport("Monthly Sales Report (30 Days)", 30 * 24 * 60 * 60 * 1000);
 }
 
 async function main() {
@@ -192,7 +200,8 @@ async function main() {
 
   setInterval(autoBackup, 24 * 60 * 60 * 1000);
   setInterval(dailySalesReport, 24 * 60 * 60 * 1000);
-  console.log("Auto backup & daily sales report scheduled every 24 hours");
+  setInterval(monthlySalesReport, 30 * 24 * 60 * 60 * 1000);
+  console.log("Auto backup, daily & monthly sales reports scheduled");
 
   await bot.api.setMyCommands([
     { command: "start", description: "دەستپێکردن" },
