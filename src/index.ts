@@ -116,6 +116,71 @@ async function autoBackup() {
   }
 }
 
+async function dailySalesReport() {
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const orders = await prisma.order.findMany({
+      where: { createdAt: { gte: since } },
+      include: {
+        product: { include: { category: true } },
+        user: true,
+      },
+    });
+
+    if (orders.length === 0) {
+      const msg = "📊 Daily Sales Report\n━━━━━━━━━━━━━━━\n\nNo sales in the last 24 hours.";
+      for (const adminId of config.adminIds) {
+        try { await bot.api.sendMessage(adminId, msg); } catch {}
+      }
+      return;
+    }
+
+    const productCounts = new Map<string, { count: number; revenue: number }>();
+    const buyerSpending = new Map<number, { name: string; spent: number }>();
+    let totalRevenue = 0;
+
+    for (const order of orders) {
+      const price = (order.user.role === "dwkandar" && order.product.dwkandarPrice != null)
+        ? order.product.dwkandarPrice
+        : (order.user.role === "vip" && order.product.vipPrice != null)
+        ? order.product.vipPrice
+        : order.product.price;
+
+      const key = `${order.product.category.name} > ${order.product.title}`;
+      const existing = productCounts.get(key) || { count: 0, revenue: 0 };
+      productCounts.set(key, { count: existing.count + 1, revenue: existing.revenue + price });
+
+      const buyer = buyerSpending.get(order.userId) || { name: order.user.firstName || "?", spent: 0 };
+      buyerSpending.set(order.userId, { name: buyer.name, spent: buyer.spent + price });
+
+      totalRevenue += price;
+    }
+
+    let msg = "📊 Daily Sales Report\n━━━━━━━━━━━━━━━\n\n";
+    msg += `🛒 Total Orders: ${orders.length}\n`;
+    msg += `💰 Total Revenue: ${totalRevenue.toLocaleString()} IQD\n\n`;
+
+    msg += "📦 Products Sold:\n─────────────────────\n";
+    const sorted = Array.from(productCounts.entries()).sort((a, b) => b[1].count - a[1].count);
+    for (const [name, data] of sorted) {
+      msg += `${data.count}x ${name} — ${data.revenue.toLocaleString()} IQD\n`;
+    }
+
+    let topBuyer = { name: "", spent: 0 };
+    for (const [, data] of buyerSpending) {
+      if (data.spent > topBuyer.spent) topBuyer = data;
+    }
+    msg += `\n🏆 Top Buyer: ${topBuyer.name} — ${topBuyer.spent.toLocaleString()} IQD`;
+
+    for (const adminId of config.adminIds) {
+      try { await bot.api.sendMessage(adminId, msg); } catch {}
+    }
+    console.log("Daily sales report sent to admins");
+  } catch (err) {
+    console.error("Daily sales report failed:", err);
+  }
+}
+
 async function main() {
   await prisma.$connect();
   console.log("Database connected");
@@ -126,7 +191,8 @@ async function main() {
   });
 
   setInterval(autoBackup, 24 * 60 * 60 * 1000);
-  console.log("Auto backup scheduled every 24 hours");
+  setInterval(dailySalesReport, 24 * 60 * 60 * 1000);
+  console.log("Auto backup & daily sales report scheduled every 24 hours");
 
   await bot.api.setMyCommands([
     { command: "start", description: "دەستپێکردن" },
