@@ -199,9 +199,7 @@ async function main() {
   });
 
   setInterval(autoBackup, 24 * 60 * 60 * 1000);
-  setInterval(dailySalesReport, 24 * 60 * 60 * 1000);
-  setInterval(monthlySalesReport, 30 * 24 * 60 * 60 * 1000);
-  console.log("Reports scheduled: daily (24h), monthly (30d) - interval only, no immediate send");
+  console.log("Auto backup scheduled every 24 hours");
 
   await bot.api.setMyCommands([
     { command: "start", description: "دەستپێکردن" },
