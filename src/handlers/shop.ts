@@ -300,6 +300,16 @@ async function handleShopInline(ctx: Context) {
   await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
 }
 
+export async function handlePersonalDone(ctx: Context) {
+  await ctx.answerCallbackQuery();
+  const parts = ctx.callbackQuery!.data!.replace("personal_done_", "").split("_");
+  const buyerId = parseInt(parts[1]);
+  try {
+    await ctx.api.sendMessage(buyerId, "پیرۆزە!\nکارەکە تەواوکرا✅");
+  } catch {}
+  await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } });
+}
+
 export async function handleCancelPersonal(ctx: Context) {
   await ctx.answerCallbackQuery();
   clearUserState(ctx.from!.id);
@@ -333,12 +343,13 @@ export async function handleUserMessage(ctx: Context) {
 
     await ctx.reply(`✅ ئەکاونتەکەت وەرگیرا!\n\n💰 ${state.data.actualPrice.toLocaleString()} دینار زیادکرا بە قەرزەکەت.`);
 
+    const doneKb = new InlineKeyboard().text("✅ Done", `personal_done_${order.id}_${ctx.from!.id}`);
     for (const adminId of config.adminIds) {
       try {
         await ctx.api.sendMessage(
           adminId,
           `👤 Personal Account Order!\n\n📋 Order #${order.id}\n👤 ${ctx.from!.first_name || "?"}${ctx.from!.username ? ` (@${ctx.from!.username})` : ""}\n📦 ${product.category.name} > ${product.title}\n💰 Price: ${state.data.actualPrice.toLocaleString()} IQD\n\n🔑 Account Details:\n<code>${accountDetails}</code>`,
-          { parse_mode: "HTML" }
+          { reply_markup: doneKb, parse_mode: "HTML" }
         );
       } catch {}
     }

@@ -12,6 +12,7 @@ import {
   handleProductSelect,
   handleBuy,
   handleBackShop,
+  handlePersonalDone,
   handleCancelPersonal,
   handleUserMessage,
   getUserState,
@@ -75,6 +76,7 @@ bot.callbackQuery(/^cat_\d+$/, handleCategorySelect);
 bot.callbackQuery(/^prod_\d+$/, handleProductSelect);
 bot.callbackQuery(/^buy_\d+$/, handleBuy);
 bot.callbackQuery("back_shop", handleBackShop);
+bot.callbackQuery(/^personal_done_/, handlePersonalDone);
 bot.callbackQuery("cancel_personal", handleCancelPersonal);
 bot.callbackQuery("noop", (ctx) => ctx.answerCallbackQuery());
 
