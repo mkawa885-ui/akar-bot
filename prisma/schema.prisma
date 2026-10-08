@@ -37,6 +37,7 @@ model Product {
   price       Float
   vipPrice    Float?
   dwkandarPrice Float?
+  jama3atPrice Float?
   autoDeliver Boolean  @default(true)
   personalAccount Boolean @default(false)
   enabled     Boolean  @default(true)

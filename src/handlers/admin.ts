@@ -79,6 +79,7 @@ export async function handleAdminCallback(ctx: Context) {
       if (audience === "standard") where.role = "standard";
       else if (audience === "vip") where.role = "vip";
       else if (audience === "dwkandar") where.role = "dwkandar";
+      else if (audience === "jama3at") where.role = "jama3at";
       const users = await prisma.user.findMany({ where });
       let sent = 0;
       for (const user of users) {
@@ -88,7 +89,7 @@ export async function handleAdminCallback(ctx: Context) {
         } catch {}
       }
       clearAdminState(ctx.from!.id);
-      const label = audience === "all" ? "" : audience === "vip" ? " VIP" : audience === "dwkandar" ? " Dwkandar" : " Standard";
+      const label = audience === "all" ? "" : audience === "vip" ? " VIP" : audience === "dwkandar" ? " Dwkandar" : audience === "jama3at" ? " Jama3at" : " Standard";
       const kb = new InlineKeyboard().text(t.back, "back_admin");
       await ctx.editMessageText(`✅ Message sent to ${sent}${label} users.`, { reply_markup: kb });
     }
@@ -388,7 +389,7 @@ export async function handleAdminCallback(ctx: Context) {
     }
     const kb = new InlineKeyboard();
     for (const prod of products) {
-      const priceInfo = `${prod.price.toLocaleString()}${prod.vipPrice != null ? ` / VIP: ${prod.vipPrice.toLocaleString()}` : ""}${prod.dwkandarPrice != null ? ` / DWK: ${prod.dwkandarPrice.toLocaleString()}` : ""}`;
+      const priceInfo = `${prod.price.toLocaleString()}${prod.vipPrice != null ? ` / VIP: ${prod.vipPrice.toLocaleString()}` : ""}${prod.dwkandarPrice != null ? ` / DWK: ${prod.dwkandarPrice.toLocaleString()}` : ""}${prod.jama3atPrice != null ? ` / J3T: ${prod.jama3atPrice.toLocaleString()}` : ""}`;
       kb.text(`${prod.title} (${priceInfo})`, `admin_priceprod_${prod.id}`).row();
     }
     const backTarget = category.parentId ? `admin_pricecat_${category.parentId}` : "admin_change_price";
@@ -403,9 +404,10 @@ export async function handleAdminCallback(ctx: Context) {
       .text(t.changeStandardPrice, `admin_setprice_${prodId}`).row()
       .text(t.changeVipPrice, `admin_setvipprice_${prodId}`).row()
       .text(t.changeDwkandarPrice, `admin_setdwkprice_${prodId}`).row()
+      .text(t.changeJama3atPrice, `admin_setjama3at_${prodId}`).row()
       .text(t.back, backTarget);
     await ctx.editMessageText(
-      `${prod.title}\n\n💰 Standard: ${prod.price.toLocaleString()} IQD\n👑 VIP: ${prod.vipPrice != null ? prod.vipPrice.toLocaleString() + " IQD" : "N/A"}\n🏪 Dwkandar: ${prod.dwkandarPrice != null ? prod.dwkandarPrice.toLocaleString() + " IQD" : "N/A"}`,
+      `${prod.title}\n\n💰 Standard: ${prod.price.toLocaleString()} IQD\n👑 VIP: ${prod.vipPrice != null ? prod.vipPrice.toLocaleString() + " IQD" : "N/A"}\n🏪 Dwkandar: ${prod.dwkandarPrice != null ? prod.dwkandarPrice.toLocaleString() + " IQD" : "N/A"}\n👥 Jama3at: ${prod.jama3atPrice != null ? prod.jama3atPrice.toLocaleString() + " IQD" : "N/A"}`,
       { reply_markup: kb }
     );
   } else if (data.startsWith("admin_setprice_")) {
@@ -418,6 +420,11 @@ export async function handleAdminCallback(ctx: Context) {
     adminState.set(ctx.from!.id, { action: "change_vip_price", data: { productId: prodId } });
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(t.enterNewVipPrice, { reply_markup: kb });
+  } else if (data.startsWith("admin_setjama3at_")) {
+    const prodId = parseInt(data.replace("admin_setjama3at_", ""));
+    adminState.set(ctx.from!.id, { action: "change_jama3at_price", data: { productId: prodId } });
+    const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
+    await ctx.editMessageText(t.enterNewJama3atPrice, { reply_markup: kb });
   } else if (data.startsWith("admin_setdwkprice_")) {
     const prodId = parseInt(data.replace("admin_setdwkprice_", ""));
     adminState.set(ctx.from!.id, { action: "change_dwkandar_price", data: { productId: prodId } });
@@ -613,6 +620,7 @@ export async function handleAdminCallback(ctx: Context) {
         price: st.data.price,
         vipPrice: st.data.vipPrice,
         dwkandarPrice: st.data.dwkandarPrice,
+        jama3atPrice: st.data.jama3atPrice,
         categoryId: st.data.categoryId,
         autoDeliver: isPersonal ? false : autoDeliver,
         personalAccount: isPersonal,
@@ -654,6 +662,7 @@ export async function handleAdminCallback(ctx: Context) {
       .text("📋 Standard", "admin_users_standard").row()
       .text("👑 VIP", "admin_users_vip").row()
       .text("🏪 Dwkandar", "admin_users_dwkandar").row()
+      .text("👥 Jama3at", "admin_users_jama3at").row()
       .text("👥 All Users", "admin_users_all").row()
       .text(t.back, "back_admin");
     await ctx.editMessageText("Select role to view users:", { reply_markup: kb });
@@ -677,7 +686,7 @@ export async function handleAdminCallback(ctx: Context) {
       kb.text(label, `admin_user_${user.id}`).row();
     }
     kb.text(t.back, "admin_users");
-    const roleLabel = role === "all" ? "All" : role === "vip" ? "VIP" : role === "dwkandar" ? "Dwkandar" : "Standard";
+    const roleLabel = role === "all" ? "All" : role === "vip" ? "VIP" : role === "dwkandar" ? "Dwkandar" : role === "jama3at" ? "Jama3at" : "Standard";
     await ctx.editMessageText(`👥 ${roleLabel} Users:`, { reply_markup: kb });
   } else if (data.startsWith("admin_user_")) {
     const userId = parseInt(data.replace("admin_user_", ""));
@@ -709,11 +718,12 @@ export async function handleAdminCallback(ctx: Context) {
     const userId = parseInt(data.replace("admin_role_", ""));
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return;
-    const roleLabel = user.role === "vip" ? "👑 VIP" : user.role === "dwkandar" ? "🏪 Dwkandar" : "📋 Standard";
+    const roleLabel = user.role === "vip" ? "👑 VIP" : user.role === "dwkandar" ? "🏪 Dwkandar" : user.role === "jama3at" ? "👥 Jama3at" : "📋 Standard";
     const kb = new InlineKeyboard()
       .text(t.roleStandard, `admin_setrole_${userId}_standard`)
       .text(t.roleVip, `admin_setrole_${userId}_vip`)
-      .text(t.roleDwkandar, `admin_setrole_${userId}_dwkandar`).row()
+      .text(t.roleDwkandar, `admin_setrole_${userId}_dwkandar`)
+      .text(t.roleJama3at, `admin_setrole_${userId}_jama3at`).row()
       .text(t.back, `admin_user_${userId}`);
     await ctx.editMessageText(`Current role: ${roleLabel}\n\nSelect a role:`, { reply_markup: kb });
   } else if (data.startsWith("admin_setrole_")) {
@@ -781,7 +791,7 @@ export async function handleAdminCallback(ctx: Context) {
       let total = 0;
       selectedOrders = [];
       for (const order of orders) {
-        const price = (user.role === "dwkandar" && order.product.dwkandarPrice != null) ? order.product.dwkandarPrice : (user.role === "vip" && order.product.vipPrice != null) ? order.product.vipPrice : order.product.price;
+        const price = (user.role === "jama3at" && order.product.jama3atPrice != null) ? order.product.jama3atPrice : (user.role === "dwkandar" && order.product.dwkandarPrice != null) ? order.product.dwkandarPrice : (user.role === "vip" && order.product.vipPrice != null) ? order.product.vipPrice : order.product.price;
         total += price;
         selectedOrders.push(order);
         if (total >= user.debt) break;
@@ -905,7 +915,9 @@ export async function handleAdminCallback(ctx: Context) {
     let totalRevenue = 0;
 
     for (const order of orders) {
-      const price = (order.user.role === "dwkandar" && order.product.dwkandarPrice != null)
+      const price = (order.user.role === "jama3at" && order.product.jama3atPrice != null)
+        ? order.product.jama3atPrice
+        : (order.user.role === "dwkandar" && order.product.dwkandarPrice != null)
         ? order.product.dwkandarPrice
         : (order.user.role === "vip" && order.product.vipPrice != null)
         ? order.product.vipPrice
@@ -968,12 +980,13 @@ export async function handleAdminCallback(ctx: Context) {
       .text("📋 Standard Only", "admin_bcast_standard").row()
       .text("👑 VIP Only", "admin_bcast_vip").row()
       .text("🏪 Dwkandar Only", "admin_bcast_dwkandar").row()
+      .text("👥 Jama3at Only", "admin_bcast_jama3at").row()
       .text(t.back, "back_admin");
     await ctx.editMessageText("Select broadcast audience:", { reply_markup: kb });
-  } else if (data === "admin_bcast_all" || data === "admin_bcast_standard" || data === "admin_bcast_vip" || data === "admin_bcast_dwkandar") {
+  } else if (data === "admin_bcast_all" || data === "admin_bcast_standard" || data === "admin_bcast_vip" || data === "admin_bcast_dwkandar" || data === "admin_bcast_jama3at") {
     const audience = data.replace("admin_bcast_", "");
     adminState.set(ctx.from!.id, { action: "broadcast", data: { audience } });
-    const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : audience === "dwkandar" ? "Dwkandar users" : "Standard users";
+    const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : audience === "dwkandar" ? "Dwkandar users" : audience === "jama3at" ? "Jama3at users" : "Standard users";
     const kb = new InlineKeyboard().text(t.cancel, "admin_cancel");
     await ctx.editMessageText(`Enter the message to broadcast to ${label}:`, { reply_markup: kb });
   }
@@ -1055,8 +1068,21 @@ export async function handleAdminMessage(ctx: Context) {
         return true;
       }
       adminState.set(ctx.from.id, {
-        action: "add_product_delivery",
+        action: "add_product_jama3at_price",
         data: { ...state.data, dwkandarPrice: dwkandarPrice > 0 ? dwkandarPrice : null },
+      });
+      await ctx.reply(t.enterJama3atPrice);
+      return true;
+    }
+    case "add_product_jama3at_price": {
+      const jama3atPrice = parseFloat(text);
+      if (isNaN(jama3atPrice) || jama3atPrice < 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      adminState.set(ctx.from.id, {
+        action: "add_product_delivery",
+        data: { ...state.data, jama3atPrice: jama3atPrice > 0 ? jama3atPrice : null },
       });
       const kb = new InlineKeyboard()
         .text(t.autoDelivery, "admin_delivery_auto")
@@ -1081,7 +1107,7 @@ export async function handleAdminMessage(ctx: Context) {
     }
     case "broadcast": {
       const audience = state.data?.audience || "all";
-      const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : audience === "dwkandar" ? "Dwkandar users" : "Standard users";
+      const label = audience === "all" ? "all users" : audience === "vip" ? "VIP users" : audience === "dwkandar" ? "Dwkandar users" : audience === "jama3at" ? "Jama3at users" : "Standard users";
       adminState.set(ctx.from.id, { action: "confirm_broadcast", data: { audience, message: text } });
       const kb = new InlineKeyboard()
         .text("✅ Yes, Send", "admin_confirmbcast")
@@ -1213,6 +1239,22 @@ export async function handleAdminMessage(ctx: Context) {
       await ctx.reply(t.vipPriceChanged(prod.title, vipPrice), { reply_markup: kb });
       return true;
     }
+    case "change_jama3at_price": {
+      const j3tPrice = parseFloat(text);
+      if (isNaN(j3tPrice) || j3tPrice < 0) {
+        await ctx.reply(t.invalidPrice);
+        return true;
+      }
+      const prodId = state.data.productId;
+      const prod = await prisma.product.update({
+        where: { id: prodId },
+        data: { jama3atPrice: j3tPrice > 0 ? j3tPrice : null },
+      });
+      clearAdminState(ctx.from.id);
+      const kb = new InlineKeyboard().text(t.back, `admin_priceprod_${prodId}`);
+      await ctx.reply(t.jama3atPriceChanged(prod.title, j3tPrice), { reply_markup: kb });
+      return true;
+    }
     case "change_dwkandar_price": {
       const dwkPrice = parseFloat(text);
       if (isNaN(dwkPrice) || dwkPrice < 0) {
@@ -1279,6 +1321,7 @@ export async function handleAdminDocument(ctx: Context) {
             price: prod.price,
             vipPrice: prod.vipPrice ?? null,
             dwkandarPrice: prod.dwkandarPrice ?? null,
+            jama3atPrice: prod.jama3atPrice ?? null,
             autoDeliver: prod.autoDeliver ?? true,
             enabled: prod.enabled ?? true,
             lowStockAlert: prod.lowStockAlert ?? 5,

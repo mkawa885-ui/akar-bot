@@ -16,8 +16,8 @@ export const t = {
   noCategories: "هیچ بەشێک نییە تا ئێستا.",
   selectProduct: "بەرهەمێک هەڵبژێرە:",
   noProducts: "هیچ بەرهەمێک نییە لەم بەشەدا.",
-  productDetails: (title: string, desc: string, price: number, vipPrice: number | null, dwkandarPrice: number | null, stock: number, category: string, role: string, showStock: boolean = true) => {
-    const displayPrice = (role === "dwkandar" && dwkandarPrice != null) ? dwkandarPrice : (role === "vip" && vipPrice != null) ? vipPrice : price;
+  productDetails: (title: string, desc: string, price: number, vipPrice: number | null, dwkandarPrice: number | null, jama3atPrice: number | null, stock: number, category: string, role: string, showStock: boolean = true) => {
+    const displayPrice = (role === "jama3at" && jama3atPrice != null) ? jama3atPrice : (role === "dwkandar" && dwkandarPrice != null) ? dwkandarPrice : (role === "vip" && vipPrice != null) ? vipPrice : price;
     let text = `📦 بەرهەم: ${title}\n📂 بەش: ${category}\n\n📝 وەسف:\n${desc}\n\n💰 نرخ: ${displayPrice.toLocaleString()} دینار`;
     if (showStock) text += `\n🟢 ئامادە: ${stock} دانە`;
     return text;
@@ -45,12 +45,15 @@ export const t = {
   changeStandardPrice: "💰 Change Standard Price",
   changeVipPrice: "👑 Change VIP Price",
   changeDwkandarPrice: "🏪 Change Dwkandar Price",
+  changeJama3atPrice: "👥 Change Jama3at Price",
   enterNewPrice: "Enter new standard price (number in IQD):",
   enterNewVipPrice: "Enter new VIP price (number in IQD, 0 to remove VIP price):",
   enterNewDwkandarPrice: "Enter new Dwkandar price (number in IQD, 0 to remove Dwkandar price):",
+  enterNewJama3atPrice: "Enter new Jama3at price (number in IQD, 0 to remove Jama3at price):",
   priceChanged: (title: string, price: number) => `✅ "${title}" standard price changed to ${price.toLocaleString()} IQD.`,
   vipPriceChanged: (title: string, price: number) => price > 0 ? `✅ "${title}" VIP price changed to ${price.toLocaleString()} IQD.` : `✅ "${title}" VIP price removed.`,
   dwkandarPriceChanged: (title: string, price: number) => price > 0 ? `✅ "${title}" Dwkandar price changed to ${price.toLocaleString()} IQD.` : `✅ "${title}" Dwkandar price removed.`,
+  jama3atPriceChanged: (title: string, price: number) => price > 0 ? `✅ "${title}" Jama3at price changed to ${price.toLocaleString()} IQD.` : `✅ "${title}" Jama3at price removed.`,
   selectProductToToggle: "Select a product to enable/disable:",
   productEnabled: (title: string) => `✅ "${title}" enabled — buyers can purchase it.`,
   productDisabled: (title: string) => `🚫 "${title}" disabled — buyers cannot purchase it.`,
@@ -104,6 +107,7 @@ export const t = {
   enterProductDescription: "Enter product description:",
   enterVipPrice: "Enter VIP price (number in IQD, 0 for no VIP price):",
   enterDwkandarPrice: "Enter Dwkandar price (number in IQD, 0 for no Dwkandar price):",
+  enterJama3atPrice: "Enter Jama3at price (number in IQD, 0 for no Jama3at price):",
   selectDeliveryType: "Select delivery type:",
   autoDelivery: "⚡ Auto (from stock)",
   manualDelivery: "✋ Manual (prepare on order)",
@@ -132,7 +136,7 @@ export const t = {
 
   // Account
   accountInfo: (debt: number, orderCount: number, limit: number, role: string, purchaseSummary: string) => {
-    const roleLabel = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : "📋 Standard";
+    const roleLabel = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : role === "jama3at" ? "👥 Jama3at" : "📋 Standard";
     return `👤 هەژمارەکەم\n\n${roleLabel}\n💰 قەرز: ${debt.toLocaleString()} دینار\n📦 کۆی داواکارییەکان: ${orderCount}\n🔒 سنووری قەرز: ${limit > 0 ? limit.toLocaleString() + " دینار" : "نادیار"}${purchaseSummary ? `\n\n🛒 کڕینەکان:\n${purchaseSummary}` : ""}`;
   },
   noDebt: "✅ هیچ قەرزێکت نییە!",
@@ -141,21 +145,24 @@ export const t = {
   // User management
   userListTitle: "👥 Users:",
   userDetail: (name: string, username: string | null, debt: number, orders: number, limit: number, role: string, purchaseSummary: string) => {
-    const roleLabel = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : "📋 Standard";
+    const roleLabel = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : role === "jama3at" ? "👥 Jama3at" : "📋 Standard";
     return `👤 ${name}${username ? ` (@${username})` : ""}\n${roleLabel}\n\n💰 Debt: ${debt.toLocaleString()} IQD\n📦 Orders: ${orders}\n🔒 Debt Limit: ${limit > 0 ? limit.toLocaleString() + " IQD" : "Unlimited"}${purchaseSummary ? `\n\n🛒 Purchases:\n${purchaseSummary}` : ""}`;
   },
   setRole: "👑 Change Role",
   roleStandard: "📋 Standard",
   roleVip: "👑 VIP",
   roleDwkandar: "🏪 Dwkandar",
+  roleJama3at: "👥 Jama3at",
   roleChanged: (role: string) => {
-    const label = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : "📋 Standard";
+    const label = role === "vip" ? "👑 VIP" : role === "dwkandar" ? "🏪 Dwkandar" : role === "jama3at" ? "👥 Jama3at" : "📋 Standard";
     return `✅ User role changed to ${label}`;
   },
   roleChangedNotify: (role: string) => role === "vip"
     ? "👑 ڕۆڵەکەت گۆڕدرا بۆ VIP! ئێستا نرخی VIP بۆت دەردەکەوێت."
     : role === "dwkandar"
     ? "🏪 ڕۆڵەکەت گۆڕدرا بۆ Dwkandar! ئێستا نرخی Dwkandar بۆت دەردەکەوێت."
+    : role === "jama3at"
+    ? "👥 ڕۆڵەکەت گۆڕدرا بۆ Jama3at! ئێستا نرخی Jama3at بۆت دەردەکەوێت."
     : "📋 ڕۆڵەکەت گۆڕدرا بۆ Standard.",
   clearDebt: "🧹 Clear Debt",
   addDebt: "➕ Add Debt",

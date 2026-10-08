@@ -44,7 +44,7 @@ export async function handleStock(ctx: Context) {
     text += `\n💳 ${catName}\n─────────────────────\n`;
     for (const prod of cat.products) {
       const stock = prod.stockItems.length;
-      const displayPrice = (userRole === "dwkandar" && prod.dwkandarPrice != null) ? prod.dwkandarPrice : (userRole === "vip" && prod.vipPrice != null) ? prod.vipPrice : prod.price;
+      const displayPrice = (userRole === "jama3at" && prod.jama3atPrice != null) ? prod.jama3atPrice : (userRole === "dwkandar" && prod.dwkandarPrice != null) ? prod.dwkandarPrice : (userRole === "vip" && prod.vipPrice != null) ? prod.vipPrice : prod.price;
       text += `${prod.title} ● ${stock} دانە\n`;
       text += `▸ ${displayPrice.toLocaleString()} دینار\n`;
     }
@@ -139,7 +139,7 @@ export async function handleProductSelect(ctx: Context) {
   const userRole = user?.role || "standard";
   const stock = product.stockItems.length;
   const showStock = product.autoDeliver && !product.personalAccount;
-  const text = t.productDetails(product.title, product.description, product.price, product.vipPrice, product.dwkandarPrice, stock, product.category.name, userRole, showStock);
+  const text = t.productDetails(product.title, product.description, product.price, product.vipPrice, product.dwkandarPrice, product.jama3atPrice, stock, product.category.name, userRole, showStock);
 
   const kb = new InlineKeyboard();
   if (product.personalAccount) {
@@ -180,7 +180,7 @@ export async function handleBuy(ctx: Context) {
   });
   if (!user) return;
 
-  const actualPrice = (user.role === "dwkandar" && product.dwkandarPrice != null) ? product.dwkandarPrice : (user.role === "vip" && product.vipPrice != null) ? product.vipPrice : product.price;
+  const actualPrice = (user.role === "jama3at" && product.jama3atPrice != null) ? product.jama3atPrice : (user.role === "dwkandar" && product.dwkandarPrice != null) ? product.dwkandarPrice : (user.role === "vip" && product.vipPrice != null) ? product.vipPrice : product.price;
 
   if (user.debtLimit > 0 && (user.debt + actualPrice) > user.debtLimit) {
     const kb = new InlineKeyboard().text(t.back, "back_main");
