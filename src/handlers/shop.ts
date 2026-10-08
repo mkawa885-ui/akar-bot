@@ -128,7 +128,7 @@ export async function handleProductSelect(ctx: Context) {
   const user = await prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from!.id) } });
   const userRole = user?.role || "standard";
   const stock = product.stockItems.length;
-  const text = t.productDetails(product.title, product.description, product.price, product.vipPrice, product.dwkandarPrice, stock, product.category.name, userRole);
+  const text = t.productDetails(product.title, product.description, product.price, product.vipPrice, product.dwkandarPrice, stock, product.category.name, userRole, product.autoDeliver);
 
   const kb = new InlineKeyboard();
   if (product.autoDeliver) {

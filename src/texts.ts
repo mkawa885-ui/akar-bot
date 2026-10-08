@@ -16,9 +16,11 @@ export const t = {
   noCategories: "هیچ بەشێک نییە تا ئێستا.",
   selectProduct: "بەرهەمێک هەڵبژێرە:",
   noProducts: "هیچ بەرهەمێک نییە لەم بەشەدا.",
-  productDetails: (title: string, desc: string, price: number, vipPrice: number | null, dwkandarPrice: number | null, stock: number, category: string, role: string) => {
+  productDetails: (title: string, desc: string, price: number, vipPrice: number | null, dwkandarPrice: number | null, stock: number, category: string, role: string, autoDeliver: boolean = true) => {
     const displayPrice = (role === "dwkandar" && dwkandarPrice != null) ? dwkandarPrice : (role === "vip" && vipPrice != null) ? vipPrice : price;
-    return `📦 بەرهەم: ${title}\n📂 بەش: ${category}\n\n📝 وەسف:\n${desc}\n\n💰 نرخ: ${displayPrice.toLocaleString()} دینار\n🟢 ئامادە: ${stock} دانە`;
+    let text = `📦 بەرهەم: ${title}\n📂 بەش: ${category}\n\n📝 وەسف:\n${desc}\n\n💰 نرخ: ${displayPrice.toLocaleString()} دینار`;
+    if (autoDeliver) text += `\n🟢 ئامادە: ${stock} دانە`;
+    return text;
   },
   outOfStock: "❌ ئەم بەرهەمە بەردەست نییە.",
   buy: "🛒 بیکڕە",
