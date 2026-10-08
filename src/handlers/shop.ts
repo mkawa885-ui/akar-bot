@@ -321,7 +321,7 @@ export async function handleUserMessage(ctx: Context) {
     if (!product) { clearUserState(ctx.from!.id); return true; }
 
     const order = await prisma.order.create({
-      data: { userId: state.data.userId, productId: product.id, delivered: false },
+      data: { userId: state.data.userId, productId: product.id, delivered: true },
     });
 
     await prisma.user.update({
@@ -331,15 +331,14 @@ export async function handleUserMessage(ctx: Context) {
 
     clearUserState(ctx.from!.id);
 
-    await ctx.reply("✅ داواکاریەکەت تۆمارکرا!\n\n⏳ ئەکاونتەکەت ئامادە دەکرێت.\nتکایە چاوەڕوان بە.");
+    await ctx.reply(`✅ ئەکاونتەکەت وەرگیرا!\n\n💰 ${state.data.actualPrice.toLocaleString()} دینار زیادکرا بە قەرزەکەت.`);
 
-    const deliverKb = new InlineKeyboard().text(t.deliverOrder, `admin_deliver_${order.id}`);
     for (const adminId of config.adminIds) {
       try {
         await ctx.api.sendMessage(
           adminId,
           `👤 Personal Account Order!\n\n📋 Order #${order.id}\n👤 ${ctx.from!.first_name || "?"}${ctx.from!.username ? ` (@${ctx.from!.username})` : ""}\n📦 ${product.category.name} > ${product.title}\n💰 Price: ${state.data.actualPrice.toLocaleString()} IQD\n\n🔑 Account Details:\n<code>${accountDetails}</code>`,
-          { reply_markup: deliverKb, parse_mode: "HTML" }
+          { parse_mode: "HTML" }
         );
       } catch {}
     }
