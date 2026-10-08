@@ -194,7 +194,7 @@ export async function handleBuy(ctx: Context) {
       data: { productId: prodId, userId: user.id, actualPrice },
     });
     const kb = new InlineKeyboard().text(t.cancel, "cancel_personal");
-    await ctx.api.sendMessage(ctx.from!.id, "تکایە زانیاری ئەکاونتەکەت بنێرە:\n(ئیمەیڵ و وشەی نهێنی)");
+    await ctx.api.sendMessage(ctx.from!.id, "ئیمەیڵ و پاسۆڕدی ئەکاونتەکە بنێرە، هەر کە کارەکە تەواو بوو ئاگادارت دەکەمەوە لە بۆت.");
     return;
   }
 
