@@ -601,9 +601,10 @@ export async function handleAdminCallback(ctx: Context) {
     } else {
       await ctx.api.sendMessage(ctx.from!.id, `✅ "${title}" deleted!`);
     }
-  } else if (data === "admin_delivery_auto" || data === "admin_delivery_manual") {
+  } else if (data === "admin_delivery_auto" || data === "admin_delivery_manual" || data === "admin_delivery_personal") {
     const st = adminState.get(ctx.from!.id);
     if (!st || st.action !== "add_product_delivery") return;
+    const isPersonal = data === "admin_delivery_personal";
     const autoDeliver = data === "admin_delivery_auto";
     await prisma.product.create({
       data: {
@@ -613,7 +614,8 @@ export async function handleAdminCallback(ctx: Context) {
         vipPrice: st.data.vipPrice,
         dwkandarPrice: st.data.dwkandarPrice,
         categoryId: st.data.categoryId,
-        autoDeliver,
+        autoDeliver: isPersonal ? false : autoDeliver,
+        personalAccount: isPersonal,
       },
     });
     clearAdminState(ctx.from!.id);
@@ -1058,7 +1060,8 @@ export async function handleAdminMessage(ctx: Context) {
       });
       const kb = new InlineKeyboard()
         .text(t.autoDelivery, "admin_delivery_auto")
-        .text(t.manualDelivery, "admin_delivery_manual");
+        .text(t.manualDelivery, "admin_delivery_manual").row()
+        .text("👤 Personal Account", "admin_delivery_personal");
       await ctx.reply(t.selectDeliveryType, { reply_markup: kb });
       return true;
     }

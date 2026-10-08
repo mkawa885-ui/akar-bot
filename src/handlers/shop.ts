@@ -4,6 +4,16 @@ import { config } from "../config";
 import { t } from "../texts";
 import { ensureUser } from "./user";
 
+const userState = new Map<number, { action: string; data: Record<string, any> }>();
+
+export function getUserState(userId: number) {
+  return userState.get(userId);
+}
+
+export function clearUserState(userId: number) {
+  userState.delete(userId);
+}
+
 export async function handleStock(ctx: Context) {
   if (ctx.callbackQuery) await ctx.answerCallbackQuery();
 
@@ -128,10 +138,13 @@ export async function handleProductSelect(ctx: Context) {
   const user = await prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from!.id) } });
   const userRole = user?.role || "standard";
   const stock = product.stockItems.length;
-  const text = t.productDetails(product.title, product.description, product.price, product.vipPrice, product.dwkandarPrice, stock, product.category.name, userRole, product.autoDeliver);
+  const showStock = product.autoDeliver && !product.personalAccount;
+  const text = t.productDetails(product.title, product.description, product.price, product.vipPrice, product.dwkandarPrice, stock, product.category.name, userRole, showStock);
 
   const kb = new InlineKeyboard();
-  if (product.autoDeliver) {
+  if (product.personalAccount) {
+    kb.text(t.buy, `buy_${product.id}`).row();
+  } else if (product.autoDeliver) {
     if (stock > 0) {
       kb.text(t.buy, `buy_${product.id}`).row();
     } else {
@@ -172,6 +185,16 @@ export async function handleBuy(ctx: Context) {
   if (user.debtLimit > 0 && (user.debt + actualPrice) > user.debtLimit) {
     const kb = new InlineKeyboard().text(t.back, "back_main");
     await ctx.editMessageText(t.debtLimitReached, { reply_markup: kb });
+    return;
+  }
+
+  if (product.personalAccount) {
+    userState.set(ctx.from!.id, {
+      action: "personal_account",
+      data: { productId: prodId, userId: user.id, actualPrice },
+    });
+    const kb = new InlineKeyboard().text(t.cancel, "cancel_personal");
+    await ctx.api.sendMessage(ctx.from!.id, "تکایە زانیاری ئەکاونتەکەت بنێرە:\n(ئیمەیڵ و وشەی نهێنی)");
     return;
   }
 
@@ -275,4 +298,53 @@ async function handleShopInline(ctx: Context) {
   }
   kb.text(t.back, "back_main");
   await ctx.editMessageText(t.selectCategory, { reply_markup: kb });
+}
+
+export async function handleCancelPersonal(ctx: Context) {
+  await ctx.answerCallbackQuery();
+  clearUserState(ctx.from!.id);
+  await ctx.api.sendMessage(ctx.from!.id, t.cancelled);
+}
+
+export async function handleUserMessage(ctx: Context) {
+  const state = userState.get(ctx.from!.id);
+  if (!state) return false;
+
+  if (state.action === "personal_account") {
+    const accountDetails = ctx.message?.text;
+    if (!accountDetails) return false;
+
+    const product = await prisma.product.findUnique({
+      where: { id: state.data.productId },
+      include: { category: true },
+    });
+    if (!product) { clearUserState(ctx.from!.id); return true; }
+
+    const order = await prisma.order.create({
+      data: { userId: state.data.userId, productId: product.id, delivered: false },
+    });
+
+    await prisma.user.update({
+      where: { id: state.data.userId },
+      data: { debt: { increment: state.data.actualPrice } },
+    });
+
+    clearUserState(ctx.from!.id);
+
+    await ctx.reply("✅ داواکاریەکەت تۆمارکرا!\n\n⏳ ئەکاونتەکەت ئامادە دەکرێت.\nتکایە چاوەڕوان بە.");
+
+    const deliverKb = new InlineKeyboard().text(t.deliverOrder, `admin_deliver_${order.id}`);
+    for (const adminId of config.adminIds) {
+      try {
+        await ctx.api.sendMessage(
+          adminId,
+          `👤 Personal Account Order!\n\n📋 Order #${order.id}\n👤 ${ctx.from!.first_name || "?"}${ctx.from!.username ? ` (@${ctx.from!.username})` : ""}\n📦 ${product.category.name} > ${product.title}\n💰 Price: ${state.data.actualPrice.toLocaleString()} IQD\n\n🔑 Account Details:\n<code>${accountDetails}</code>`,
+          { reply_markup: deliverKb, parse_mode: "HTML" }
+        );
+      } catch {}
+    }
+    return true;
+  }
+
+  return false;
 }

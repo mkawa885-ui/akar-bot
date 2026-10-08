@@ -38,6 +38,7 @@ model Product {
   vipPrice    Float?
   dwkandarPrice Float?
   autoDeliver Boolean  @default(true)
+  personalAccount Boolean @default(false)
   enabled     Boolean  @default(true)
   lowStockAlert Int    @default(5)
   categoryId  Int

@@ -12,6 +12,10 @@ import {
   handleProductSelect,
   handleBuy,
   handleBackShop,
+  handleCancelPersonal,
+  handleUserMessage,
+  getUserState,
+  clearUserState,
 } from "./handlers/shop";
 import {
   handleAdminPanel,
@@ -54,6 +58,7 @@ bot.use(async (ctx, next) => {
   }
   if (ctx.from && ctx.message?.text?.startsWith("/")) {
     clearAdminState(ctx.from.id);
+    clearUserState(ctx.from.id);
   }
   await next();
 });
@@ -70,6 +75,7 @@ bot.callbackQuery(/^cat_\d+$/, handleCategorySelect);
 bot.callbackQuery(/^prod_\d+$/, handleProductSelect);
 bot.callbackQuery(/^buy_\d+$/, handleBuy);
 bot.callbackQuery("back_shop", handleBackShop);
+bot.callbackQuery("cancel_personal", handleCancelPersonal);
 bot.callbackQuery("noop", (ctx) => ctx.answerCallbackQuery());
 
 bot.callbackQuery("back_admin", handleAdminPanel);
@@ -82,6 +88,10 @@ bot.on("message:document", async (ctx) => {
 });
 
 bot.on("message:text", async (ctx) => {
+  if (getUserState(ctx.from.id)) {
+    const handled = await handleUserMessage(ctx);
+    if (handled) return;
+  }
   if (getAdminState(ctx.from.id)) {
     await handleAdminMessage(ctx);
   }
