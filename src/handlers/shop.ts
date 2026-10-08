@@ -101,9 +101,13 @@ export async function handleCategorySelect(ctx: Context) {
     return;
   }
 
+  const user = await prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from!.id) } });
+  const userRole = user?.role || "standard";
+
   const kb = new InlineKeyboard();
   for (const prod of products) {
-    kb.text(prod.title, `prod_${prod.id}`).row();
+    const displayPrice = (userRole === "dwkandar" && prod.dwkandarPrice != null) ? prod.dwkandarPrice : (userRole === "vip" && prod.vipPrice != null) ? prod.vipPrice : prod.price;
+    kb.text(`${prod.title} - ${displayPrice.toLocaleString()} دینار`, `prod_${prod.id}`).row();
   }
   const backTarget = category.parentId ? `cat_${category.parentId}` : "back_shop";
   kb.text(t.back, backTarget);
