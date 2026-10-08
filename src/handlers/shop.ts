@@ -103,12 +103,7 @@ export async function handleCategorySelect(ctx: Context) {
 
   const kb = new InlineKeyboard();
   for (const prod of products) {
-    if (prod.autoDeliver) {
-      const stock = prod.stockItems.length;
-      kb.text(`${prod.title} (${stock} دانە)`, `prod_${prod.id}`).row();
-    } else {
-      kb.text(prod.title, `prod_${prod.id}`).row();
-    }
+    kb.text(prod.title, `prod_${prod.id}`).row();
   }
   const backTarget = category.parentId ? `cat_${category.parentId}` : "back_shop";
   kb.text(t.back, backTarget);
