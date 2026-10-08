@@ -26,7 +26,8 @@ export async function handleAdminPanel(ctx: Context) {
     .text(t.addProduct, "admin_add_prod").row()
     .text(t.addStock, "admin_add_stock").text(t.deleteStock, "admin_del_stock").row()
     .text(t.toggleProduct, "admin_toggle_prod").text(t.changePrice, "admin_change_price").row()
-    .text(t.deleteCategory, "admin_del_cat").text(t.deleteProduct, "admin_del_prod").row()
+    .text(t.deleteCategory, "admin_del_cat").text("🗑️ Delete Sub-Category", "admin_del_subcat").row()
+    .text(t.deleteProduct, "admin_del_prod").row()
     // Orders & Inventory
     .text(t.pendingOrders, "admin_pending").text(t.searchStock, "admin_search").row()
     .text(t.inventory, "admin_inventory").text(t.stats, "admin_stats").row()
@@ -476,6 +477,62 @@ export async function handleAdminCallback(ctx: Context) {
       }
     }
     await ctx.api.sendMessage(ctx.from!.id, `✅ "${category.name}" deleted!`);
+  } else if (data === "admin_del_subcat") {
+    const categories = await prisma.category.findMany({
+      where: { parentId: null },
+      include: { children: true },
+      orderBy: { name: "asc" },
+    });
+    const catsWithSubs = categories.filter(c => c.children.length > 0);
+    if (catsWithSubs.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "back_admin");
+      await ctx.editMessageText("No sub-categories found.", { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const cat of catsWithSubs) {
+      kb.text(cat.name, `admin_delsubcat_parent_${cat.id}`).row();
+    }
+    kb.text(t.back, "back_admin");
+    await ctx.editMessageText("Select parent category:", { reply_markup: kb });
+  } else if (data.startsWith("admin_delsubcat_parent_")) {
+    const parentId = parseInt(data.replace("admin_delsubcat_parent_", ""));
+    const subs = await prisma.category.findMany({
+      where: { parentId },
+      orderBy: { name: "asc" },
+    });
+    if (subs.length === 0) {
+      const kb = new InlineKeyboard().text(t.back, "admin_del_subcat");
+      await ctx.editMessageText("No sub-categories in this category.", { reply_markup: kb });
+      return;
+    }
+    const kb = new InlineKeyboard();
+    for (const sub of subs) {
+      kb.text(`🗑️ ${sub.name}`, `admin_delsubcat_${sub.id}`).row();
+    }
+    kb.text(t.back, "admin_del_subcat");
+    await ctx.editMessageText("Select sub-category to delete:", { reply_markup: kb });
+  } else if (data.startsWith("admin_delsubcat_") && !data.startsWith("admin_delsubcat_parent_")) {
+    const subId = parseInt(data.replace("admin_delsubcat_", ""));
+    const subcat = await prisma.category.findUnique({
+      where: { id: subId },
+      include: { products: { include: { stockItems: { where: { sold: false } } } } },
+    });
+    if (!subcat) return;
+    await prisma.category.delete({ where: { id: subId } });
+    if (subcat.products.some(p => p.stockItems.length > 0)) {
+      for (const prod of subcat.products) {
+        if (prod.stockItems.length > 0) {
+          const content = prod.stockItems.map(i => i.content).join("\n");
+          const msg = `📦 ${prod.title} (${prod.stockItems.length}):\n\n<code>${content}</code>`;
+          const chunks = msg.match(/[\s\S]{1,4000}/g) || [];
+          for (const chunk of chunks) {
+            await ctx.api.sendMessage(ctx.from!.id, chunk, { parse_mode: "HTML" });
+          }
+        }
+      }
+    }
+    await ctx.api.sendMessage(ctx.from!.id, `✅ Sub-category "${subcat.name}" deleted!`);
   } else if (data === "admin_del_prod") {
     const categories = await prisma.category.findMany({
       where: { parentId: null },
