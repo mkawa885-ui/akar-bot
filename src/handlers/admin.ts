@@ -395,13 +395,14 @@ export async function handleAdminCallback(ctx: Context) {
     await ctx.editMessageText(t.selectProductToChangePrice, { reply_markup: kb });
   } else if (data.startsWith("admin_priceprod_")) {
     const prodId = parseInt(data.replace("admin_priceprod_", ""));
-    const prod = await prisma.product.findUnique({ where: { id: prodId } });
+    const prod = await prisma.product.findUnique({ where: { id: prodId }, include: { category: true } });
     if (!prod) return;
+    const backTarget = `admin_pricecat_${prod.categoryId}`;
     const kb = new InlineKeyboard()
       .text(t.changeStandardPrice, `admin_setprice_${prodId}`).row()
       .text(t.changeVipPrice, `admin_setvipprice_${prodId}`).row()
       .text(t.changeDwkandarPrice, `admin_setdwkprice_${prodId}`).row()
-      .text(t.back, "admin_change_price");
+      .text(t.back, backTarget);
     await ctx.editMessageText(
       `${prod.title}\n\n💰 Standard: ${prod.price.toLocaleString()} IQD\n👑 VIP: ${prod.vipPrice != null ? prod.vipPrice.toLocaleString() + " IQD" : "N/A"}\n🏪 Dwkandar: ${prod.dwkandarPrice != null ? prod.dwkandarPrice.toLocaleString() + " IQD" : "N/A"}`,
       { reply_markup: kb }
@@ -1126,12 +1127,14 @@ export async function handleAdminMessage(ctx: Context) {
         await ctx.reply(t.invalidPrice);
         return true;
       }
+      const prodId = state.data.productId;
       const prod = await prisma.product.update({
-        where: { id: state.data.productId },
+        where: { id: prodId },
         data: { price },
       });
       clearAdminState(ctx.from.id);
-      await ctx.reply(t.priceChanged(prod.title, price));
+      const kb = new InlineKeyboard().text(t.back, `admin_priceprod_${prodId}`);
+      await ctx.reply(t.priceChanged(prod.title, price), { reply_markup: kb });
       return true;
     }
     case "change_vip_price": {
@@ -1140,12 +1143,14 @@ export async function handleAdminMessage(ctx: Context) {
         await ctx.reply(t.invalidPrice);
         return true;
       }
+      const prodId = state.data.productId;
       const prod = await prisma.product.update({
-        where: { id: state.data.productId },
+        where: { id: prodId },
         data: { vipPrice: vipPrice > 0 ? vipPrice : null },
       });
       clearAdminState(ctx.from.id);
-      await ctx.reply(t.vipPriceChanged(prod.title, vipPrice));
+      const kb = new InlineKeyboard().text(t.back, `admin_priceprod_${prodId}`);
+      await ctx.reply(t.vipPriceChanged(prod.title, vipPrice), { reply_markup: kb });
       return true;
     }
     case "change_dwkandar_price": {
@@ -1154,12 +1159,14 @@ export async function handleAdminMessage(ctx: Context) {
         await ctx.reply(t.invalidPrice);
         return true;
       }
+      const prodId = state.data.productId;
       const prod = await prisma.product.update({
-        where: { id: state.data.productId },
+        where: { id: prodId },
         data: { dwkandarPrice: dwkPrice > 0 ? dwkPrice : null },
       });
       clearAdminState(ctx.from.id);
-      await ctx.reply(t.dwkandarPriceChanged(prod.title, dwkPrice));
+      const kb = new InlineKeyboard().text(t.back, `admin_priceprod_${prodId}`);
+      await ctx.reply(t.dwkandarPriceChanged(prod.title, dwkPrice), { reply_markup: kb });
       return true;
     }
   }
