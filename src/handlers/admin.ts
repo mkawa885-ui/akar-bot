@@ -1108,7 +1108,7 @@ export async function handleAdminMessage(ctx: Context) {
       try {
         await ctx.api.sendMessage(
           Number(order.user.telegramId),
-          t.orderDeliveredNotify(text),
+          `${t.orderDeliveredNotify(text)}\n\nپیرۆزە!\nکارەکە تەواوکرا✅`,
           { parse_mode: "HTML" }
         );
       } catch {}

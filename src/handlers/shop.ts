@@ -237,7 +237,7 @@ export async function handleBuy(ctx: Context) {
 
     await ctx.api.sendMessage(ctx.from!.id, t.purchaseManualSuccess);
 
-    const deliverKb = new InlineKeyboard().text(t.deliverOrder, `admin_deliver_${order.id}`);
+    const deliverKb = new InlineKeyboard().text("✅ Done", `admin_deliver_${order.id}`);
     for (const adminId of config.adminIds) {
       try {
         await ctx.api.sendMessage(
