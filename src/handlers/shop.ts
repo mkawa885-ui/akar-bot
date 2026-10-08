@@ -303,7 +303,12 @@ async function handleShopInline(ctx: Context) {
 export async function handlePersonalDone(ctx: Context) {
   await ctx.answerCallbackQuery();
   const parts = ctx.callbackQuery!.data!.replace("personal_done_", "").split("_");
+  const orderId = parseInt(parts[0]);
   const buyerId = parseInt(parts[1]);
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { delivered: true },
+  });
   try {
     await ctx.api.sendMessage(buyerId, "پیرۆزە!\nکارەکە تەواوکرا✅");
   } catch {}
@@ -331,7 +336,7 @@ export async function handleUserMessage(ctx: Context) {
     if (!product) { clearUserState(ctx.from!.id); return true; }
 
     const order = await prisma.order.create({
-      data: { userId: state.data.userId, productId: product.id, delivered: true },
+      data: { userId: state.data.userId, productId: product.id, delivered: false },
     });
 
     await prisma.user.update({
