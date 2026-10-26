@@ -695,7 +695,7 @@ export async function handleAdminCallback(ctx: Context) {
     const userId = parseInt(data.replace("admin_user_", ""));
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { orders: { include: { product: true } } },
+      include: { orders: { where: { paid: false }, include: { product: true } } },
     });
     if (!user) return;
     const summary = buildPurchaseSummary(user.orders);
@@ -791,17 +791,8 @@ export async function handleAdminCallback(ctx: Context) {
     });
 
     let selectedOrders = orders;
-    if (isDebt && user.debt > 0) {
-      let total = 0;
-      selectedOrders = [];
-      for (const order of orders) {
-        const price = (user.role === "jama3at" && order.product.jama3atPrice != null) ? order.product.jama3atPrice : (user.role === "dwkandar" && order.product.dwkandarPrice != null) ? order.product.dwkandarPrice : (user.role === "vip" && order.product.vipPrice != null) ? order.product.vipPrice : order.product.price;
-        total += price;
-        selectedOrders.push(order);
-        if (total >= user.debt) break;
-      }
-    } else if (isDebt && user.debt <= 0) {
-      selectedOrders = [];
+    if (isDebt) {
+      selectedOrders = orders.filter(o => !o.paid);
     }
 
     const label = isDebt ? "Current Debt" : "Lifetime";
@@ -809,7 +800,7 @@ export async function handleAdminCallback(ctx: Context) {
     txt += `Range: ${label}\n`;
     txt += `Generated: ${new Date().toISOString().split("T")[0]}\n`;
     txt += `Current Debt: ${user.debt.toLocaleString()} IQD\n`;
-    txt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    txt += `---------------------------\n\n`;
 
     if (selectedOrders.length === 0) {
       txt += "No orders found.\n";
@@ -817,25 +808,26 @@ export async function handleAdminCallback(ctx: Context) {
       let totalSpent = 0;
       for (let i = 0; i < selectedOrders.length; i++) {
         const o = selectedOrders[i];
-        const price = (user.role === "dwkandar" && o.product.dwkandarPrice != null) ? o.product.dwkandarPrice : (user.role === "vip" && o.product.vipPrice != null) ? o.product.vipPrice : o.product.price;
+        const price = (user.role === "jama3at" && o.product.jama3atPrice != null) ? o.product.jama3atPrice : (user.role === "dwkandar" && o.product.dwkandarPrice != null) ? o.product.dwkandarPrice : (user.role === "vip" && o.product.vipPrice != null) ? o.product.vipPrice : o.product.price;
         totalSpent += price;
         txt += `#${i + 1} | ${o.createdAt.toLocaleString("en-US")}\n`;
         txt += `   Product: ${o.product.category.name} > ${o.product.title}\n`;
         txt += `   Price: ${price.toLocaleString()} IQD\n`;
         txt += `   Status: ${o.delivered ? "Delivered" : "Pending"}\n`;
+        txt += `   Paid: ${o.paid ? "Yes" : "No"}\n`;
         const stock = o.stockItems.find(s => s.orderId === o.id);
         if (stock) {
           txt += `   Content: ${stock.content}\n`;
         }
         txt += `\n`;
       }
-      txt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      txt += `---------------------------\n`;
       txt += `Total Orders: ${selectedOrders.length}\n`;
       txt += `Total Spent: ${totalSpent.toLocaleString()} IQD\n`;
     }
 
     const filePath = path.resolve(__dirname, `../../history-${user.id}-${Date.now()}.txt`);
-    fs.writeFileSync(filePath, txt);
+    fs.writeFileSync(filePath, "﻿" + txt, "utf8");
     await ctx.api.sendDocument(ctx.from!.id, new InputFile(filePath, `history-${user.firstName || "user"}-${label.replace(" ", "-")}.txt`));
     fs.unlinkSync(filePath);
     const kb = new InlineKeyboard().text(t.back, `admin_user_${userId}`);
