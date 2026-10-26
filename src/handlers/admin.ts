@@ -68,7 +68,10 @@ export async function handleAdminCallback(ctx: Context) {
         })),
       });
       clearAdminState(ctx.from!.id);
-      await ctx.api.sendMessage(ctx.from!.id, t.stockAddedTo(state.data.items.length, product?.title || "?"));
+      const totalStock = await prisma.stockItem.count({
+        where: { productId: state.data.productId, sold: false },
+      });
+      await ctx.api.sendMessage(ctx.from!.id, `${t.stockAddedTo(state.data.items.length, product?.title || "?")}\n\n📦 Total stock: ${totalStock}`);
     }
     return;
   } else if (data === "admin_confirmbcast") {
