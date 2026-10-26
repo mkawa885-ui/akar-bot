@@ -753,6 +753,7 @@ export async function handleAdminCallback(ctx: Context) {
     if (!oldUser) return;
     const clearedAmount = oldUser.debt;
     const user = await prisma.user.update({ where: { id: userId }, data: { debt: 0 } });
+    await prisma.order.updateMany({ where: { userId, paid: false }, data: { paid: true } });
     await ctx.api.sendMessage(ctx.from!.id, t.debtClearedAmount(oldUser.firstName || "?", clearedAmount));
     try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(clearedAmount, 0)); } catch {}
   } else if (data.startsWith("admin_partialdebt_")) {
@@ -1192,6 +1193,9 @@ export async function handleAdminMessage(ctx: Context) {
         data: { debt: { decrement: deductAmount } },
       });
       clearAdminState(ctx.from.id);
+      if (user.debt <= 0) {
+        await prisma.order.updateMany({ where: { userId: state.data.userId, paid: false }, data: { paid: true } });
+      }
       await ctx.reply(t.debtClearedAmount(oldUser.firstName || "?", deductAmount));
       try { await ctx.api.sendMessage(Number(user.telegramId), t.debtClearedNotifyAmount(deductAmount, user.debt)); } catch {}
       return true;

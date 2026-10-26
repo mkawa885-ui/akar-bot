@@ -121,7 +121,7 @@ export async function handleMyAccount(ctx: Context) {
   await ensureUser(ctx);
   const user = await prisma.user.findUnique({
     where: { telegramId: BigInt(ctx.from!.id) },
-    include: { orders: { include: { product: true } } },
+    include: { orders: { where: { paid: false }, include: { product: true } } },
   });
   if (!user) return;
   const summary = buildPurchaseSummary(user.orders);
