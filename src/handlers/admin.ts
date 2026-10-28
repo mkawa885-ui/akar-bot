@@ -1088,10 +1088,18 @@ export async function handleAdminMessage(ctx: Context) {
       return true;
     }
     case "add_stock": {
-      const items = text
-        .split("\n")
-        .map((line: string) => line.trim())
-        .filter((line: string) => line.length > 0);
+      let items: string[];
+      if (text.includes("------")) {
+        items = text
+          .split(/-{6,}/)
+          .map((block: string) => block.trim())
+          .filter((block: string) => block.length > 0);
+      } else {
+        items = text
+          .split("\n")
+          .map((line: string) => line.trim())
+          .filter((line: string) => line.length > 0);
+      }
       const product = await prisma.product.findUnique({ where: { id: state.data.productId } });
       if (!product) return true;
       adminState.set(ctx.from.id, { action: "confirm_stock", data: { productId: state.data.productId, items } });
@@ -1278,9 +1286,40 @@ export async function handleAdminMessage(ctx: Context) {
 export async function handleAdminDocument(ctx: Context) {
   if (!ctx.from || !ctx.message?.document) return false;
   const state = adminState.get(ctx.from.id);
-  if (!state || state.action !== "restore_db") return false;
+  if (!state) return false;
 
   const fileName = ctx.message.document.file_name || "";
+
+  if (state.action === "add_stock" && fileName.endsWith(".txt")) {
+    try {
+      const file = await ctx.getFile();
+      const filePath = `https://api.telegram.org/file/bot${(await import("../config")).config.botToken}/${file.file_path}`;
+      const response = await fetch(filePath);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const text = buffer.toString("utf-8");
+
+      let items: string[];
+      if (text.includes("------")) {
+        items = text.split(/-{6,}/).map(b => b.trim()).filter(b => b.length > 0);
+      } else {
+        items = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+      }
+
+      const product = await prisma.product.findUnique({ where: { id: state.data.productId } });
+      if (!product) return true;
+      adminState.set(ctx.from.id, { action: "confirm_stock", data: { productId: state.data.productId, items } });
+      const kb = new InlineKeyboard()
+        .text("✅ Yes, Add", "admin_confirmstock")
+        .text(t.cancel, "admin_cancel");
+      await ctx.reply(t.confirmStockAdd(items.length, product.title), { reply_markup: kb });
+    } catch (err) {
+      await ctx.reply("❌ Failed to read file.");
+    }
+    return true;
+  }
+
+  if (state.action !== "restore_db") return false;
+
   if (!fileName.endsWith(".json")) {
     await ctx.reply(t.restoreInvalidFile);
     return true;
